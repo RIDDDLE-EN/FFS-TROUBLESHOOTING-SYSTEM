@@ -1,14 +1,21 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <Wire.h>
+#include <DHT.H>
 
+#define DHT22_PIN 21
 #define ledPin 4
+
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+DHT dht(DHT22_PIN, DHT22);
 
 const char* ssid = Wokwi-GUEST";
 const char* password = "";
 const char* mqtt_server = "broker.hivemq.com";
-
-WiFiClient espClient;
-PubSubClient mqttClient(espClient);
+char msg[50];
+int value;
+float temperature, humidity;
 
 void setup(){
   Serial.begin(115200);
@@ -82,5 +89,23 @@ void loop(){
   mqttClient.loop();
 
   long now = millis();
+  
+  if (now - lastMsg > 5000) {
+    lastMsg = now;
 
+    temperature = dht.readTemperature();
+    humidity = dht.readHumidity();
+
+    char tempString[8];
+    dtostrf(temperature, 1, 2, tempString);
+    Serial.print("Temperature: ");
+    Serial.println(tempString);
+    mqttClient.publish("esp32/temperature", tempString);
+
+    char humString[8];
+    dtostrf(humidity, 1, 2, humString);
+    Serial.print("humidity: ");
+    Serial.println(humString);
+    mqttClient.publish("esp32/humidity", humString);
+  }
 }
