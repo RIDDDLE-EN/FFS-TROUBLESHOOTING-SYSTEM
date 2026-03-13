@@ -10,7 +10,7 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 DHT dht(DHT22_PIN, DHT22);
 
-const char* ssid = Wokwi-GUEST";
+const char* ssid = "Wokwi-GUEST";
 const char* password = "";
 const char* mqtt_server = "broker.hivemq.com";
 char msg[50];
@@ -43,7 +43,7 @@ void setup_wifi(){
   Serial.println("WiFi Connected");
 }
 
-void callback(char* topic, char* payload, unsigned int length){
+void callback(char* topic, uint8_t* payload, unsigned int length){
   Serial.print("Callback - ");
   Serial.print("Message:");
 
