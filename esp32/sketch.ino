@@ -1,28 +1,47 @@
+#include <MyLogin.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Wire.h>
-#include <DHT.H>
+#include <DHT.h>
+#include <math.h>
 
-#define DHT22_PIN 21
+#define DHT11_PIN 21
 #define ledPin 4
+#define trigPin 5
+#define echoPin 18
+
+const char* ssid = STASSID;
+const char* password = STAPSK;
+const char* mqtt_server = "broker.hivemq.com";
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
-DHT dht(DHT22_PIN, DHT22);
+DHT dht11(DHT11_PIN, DHT11);
 
-const char* ssid = "Wokwi-GUEST";
-const char* password = "";
-const char* mqtt_server = "broker.hivemq.com";
-char msg[50];
-int value;
-float temperature, humidity;
+long lastMsg = 0;
+unsigned long duration = 0;
+float distanceCm = 0.0;
+float temperature = NAN;
+float humidity = NAN;
 
 void setup(){
   Serial.begin(115200);
+  delay(100);
 
+  pinMode(ledPin, OUTPUT);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  
+  //testing to see if code has uploaded
+  digitalWrite(ledPin, HIGH);
+  delay(200);
+  digitalWrite(ledPin, LOW);
+
+  dht11.begin();
   setup_wifi();
+  
   mqttClient.setServer(mqtt_server, 1883);
-  mqttClient.serCallback(callback);
+  mqttClient.setCallback(callback);
 }
 
 void setup_wifi(){
@@ -43,9 +62,10 @@ void setup_wifi(){
   Serial.println("WiFi Connected");
 }
 
-void callback(char* topic, uint8_t* payload, unsigned int length){
-  Serial.print("Callback - ");
-  Serial.print("Message:");
+void callback(char* topic, byte* payload, unsigned int length){
+  Serial.print("Message arrived on topic: ");
+  Serial.print(topic);
+  Serial.print(". Message: ");
 
   String messageTemp;
   
@@ -53,6 +73,7 @@ void callback(char* topic, uint8_t* payload, unsigned int length){
     Serial.print((char)payload[i]);
     messageTemp += (char)payload[i];
   }
+  Serial.println();
 
   if (String(topic) == "esp32/test") {
     Serial.print("Changing Output to ");
@@ -69,6 +90,7 @@ void callback(char* topic, uint8_t* payload, unsigned int length){
 }
 
 void reconnect(){
+  if (mqttClient.connected()) return;
   Serial.println("Connecting to MQTT Broker...");
 
   while (!mqttClient.connected()){
@@ -77,10 +99,32 @@ void reconnect(){
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
 
-    if (mqttClient.connect(clientId.c_str(), "testUser0592", "test0592")){
+    if (mqttClient.connect(clientId.c_str(), CLIENTID, CLIENTPSK)){
       Serial.println("Connected. ");
       mqttClient.subscribe("esp32/test");
     }
+  }
+}
+
+void measureUltrasonic(){
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  duration = pulseIn(echoPin, HIGH, 30000UL);
+
+  if (duration == 0) {
+    distanceCm = -1.0;
+    Serial.println("Ultrasonic: timeout (no echo).");
+  }
+  else {
+    distanceCm = (float)duration/58.0;
+    Serial.print("Ultrasonic duration (us): ");
+    Serial.print(duration);
+    Serial.print(" distance(cm): ");
+    Serial.println(distanceCm, 2);
   }
 }
 
@@ -90,22 +134,53 @@ void loop(){
 
   long now = millis();
   
-  if (now - lastMsg > 5000) {
+  if (now - lastMsg > 5000UL) {
     lastMsg = now;
 
-    temperature = dht.readTemperature();
-    humidity = dht.readHumidity();
+    measureUltrasonic();
 
-    char tempString[8];
-    dtostrf(temperature, 1, 2, tempString);
-    Serial.print("Temperature: ");
-    Serial.println(tempString);
-    mqttClient.publish("esp32/temperature", tempString);
+    char distString[16];
+    if (distanceCm < 0) {
+      snprintf(distString, sizeof(distString), "timeout");
+      Serial.println("Publishing distance: timeout");
+      if (mqttClient.connected()) mqttClient.publish("esp32/distance", distString);
+    } else {
+      dtostrf(distanceCm, 4, 2, distString);
+      Serial.print("Publishing distance: ");
+      Serial.println(distString);
+      if (mqttClient.connected()){
+        bool ok = mqttClient.publish("esp32/distance", distString);
+        Serial.print("Publish distance ");
+        Serial.println(ok ? "ok" : "FAILED");
+      }
+    }
 
-    char humString[8];
-    dtostrf(humidity, 1, 2, humString);
-    Serial.print("humidity: ");
-    Serial.println(humString);
-    mqttClient.publish("esp32/humidity", humString);
+    temperature = dht11.readTemperature();
+    humidity = dht11.readHumidity();
+
+    if (isnan(temperature) || isnan(humidity)) {
+      Serial.println("DHT read failed (NaN) - skipping publish.");
+    } else {
+      char tempString[16];
+      char humString[16];
+      dtostrf(temperature, 4, 2, tempString);
+      dtostrf(humidity, 4, 2, humString);
+
+      Serial.print("Publishing temp: ");
+      Serial.println(tempString);
+      Serial.print("Publishing hum: ");
+      Serial.println(humString);
+
+      if (mqttClient.connected()) {
+        bool okT = mqttClient.publish("esp32/temperature", tempString);
+        bool okH = mqttClient.publish("esp32/humidity", humString);
+        Serial.print("Publish temp ");
+        Serial.println(okT ? "OK" : "FAILED");
+        Serial.print("Publish hum ");
+        Serial.println(okH ? "OK" : "FAILED");
+      }
+    }
   }
+
+  delay(10);
 }
