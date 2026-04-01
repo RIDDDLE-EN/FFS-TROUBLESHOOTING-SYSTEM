@@ -11,6 +11,10 @@
 #define DHT_PIN 21
 #define SONAR_NUM 2
 #define MAX_DISTANCE 200
+#define button 13
+#define ledPin 4
+#define sensorIn 34
+#define ldrPin 35
 
 WiFiManager wm;
 WiFiClient espClient;
@@ -21,14 +25,23 @@ Ultrasonic sonar[SONAR_NUM] = {
   Ultrasonic(19, 21)
 };
 
-int button = 13;
-int ledPin = 4;
+int ldrValue = 0;
+int mVperAmp = 185;
+int watt = 0;
+double voltage = 0;
+double VRMS = 0;
+double AmpsRMS = 0;
+
+int threshold = 2000;
+const int hysteresis = 100;
+unsigned long blockStartMicros = 0;
 
 long lastMsg = 0;
 unsigned long duration = 0;
-float distance1, distance2, temp, hum;
+float distance1, distance2, temp, hum, blockTimeSec;
 
 bool shouldSaveConfig = false;
+bool beamBlocked = false;
 
 char ssid[32];
 char pass[32];
@@ -36,8 +49,13 @@ const char* mqtt_server = "broker.hivemq.com";
 const int mqtt_port = 1883;
 const char* dist1Topic = "esp32/distance1";
 const char* dist2Topic = "esp32/distance2";
+const char* volTopic = "esp32/motor/voltage";
+const char* vrmsTopic = "esp32/motor/vrms";
+const char* ampRmsTopic = "esp32/motor/ampRms";
+const char* wattTopic = "esp32/motor/watt";
 const char* tempTopic = "esp32/temperature";
 const char* humTopic = "esp32/humidity";
+const char* ldrTopic = "esp32/ldr";
 const char* subTopic = "esp32/test";
 
 
@@ -158,6 +176,49 @@ void measureHumTemp(){
   }
 }
 
+float getVPP(){
+  float result;
+  int readValue;
+  int maxValue = 0;
+  int minValue = 4096;
+
+  uint32_t start_time = millis();
+  while ((millis()-start_time) < 1000){
+    readValue = analogRead(sensorIn);
+
+    if (readVAlue > maxValue){
+      maxValue = readValue;
+    }
+    if (readValue < minValue) {
+      minValue = readValue;
+    }
+  }
+
+  result = ((maxValue - minValue) * 3.3)/4096.0;
+
+  return result;
+}
+
+void readLDR(){
+   ldrValue = analogRead(ldrPin);
+   Serial.print("LDR: ");
+   Serial.println(ldrValue);
+
+   if (!beamBlocked && ldrValue < threshold){
+     beamBlocked = true;
+     blockStartMicros = micros();
+     Serial.println("Measuring the bag length);
+   }
+   if (beamBlocked && ldrValue > threshold + hysteresis){
+     beamBlocked = false;
+     unsigned long blockTime = micros() - blockStartMicros;
+     blockTimeSec = blockTime / 1000000.0;
+     Serial.print("block time: ");
+     Serial.print(blockTimeSec);
+     Serial.println("s");
+   }
+}
+
 void setup() {
   Serial.begin(115200);
   EEPROM.begin(512);
@@ -169,6 +230,7 @@ void setup() {
   pinMode(button, INPUT_PULLUP);
   pinMode(ledPin, OUTPUT);
 
+  analogReadResolution(12);
   wm.setSaveConfigCallback(saveConfigCallback);
 
   if (digitalRead(button) == LOW) {
@@ -214,8 +276,20 @@ void loop() {
     distance2 = sonar[1].read();
     sendJsonMessage("Ultrasonic Sensor2:", "distance2", distance2, dist2Topic);
 
-    measureHumTemp();
-    sendJsonMessage("DHT11 Sensor:", "temperature", temp, tempTopic);
-    sendJsonMessage("DHT11 Sensor:", "humidity", hum, humTopic);
+    voltage = getVPP();
+    VRMS = (Voltage/20)*0.707;
+    AmpsRMS = ((VRMS*1000)/mVperAmp) - 0.3;
+    watt = (AmpsRMS*240/1.2);
+    sendJsonMessage("ACS712 Sensor", "voltage", voltage, volTopic);
+    sendJsonMessage("ACS712 Sensor", "VRMS", VRMS, vrmsTopic);
+    sendJsonMessage("ACS712 Sensor", "AmpsRMS", AmpsRMS, ampRmsTopic);
+    sendJsonMessage("ACS721 Sensor", "Wattage", watt, wattTopic);
+
+    readLDR();
+    sendJsonMessage("LDR", "blockTime", blockTimeSec, ldrTopic);
+
+//    measureHumTemp();
+//    sendJsonMessage("DHT11 Sensor:", "temperature", temp, tempTopic);
+//    sendJsonMessage("DHT11 Sensor:", "humidity", hum, humTopic);
   }
 } 
