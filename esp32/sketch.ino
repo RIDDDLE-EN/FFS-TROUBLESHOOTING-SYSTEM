@@ -8,21 +8,25 @@
 #include <DHT.h>
 #include <Ultrasonic.h>
 
-#define DHT_PIN 21
-#define SONAR_NUM 2
-#define MAX_DISTANCE 200
-#define button 13
-#define ledPin 4
-#define sensorIn 34
-#define ldrPin 35
+#define DHT_PIN       4
+#define SONAR_NUM     2
+#define MAX_DISTANCE  200
+#define button        13
+#define ledPin        5
+#define sensorIn1     32
+#define sensorIn2     33
+#define ldrPin        35
+#define hxDT          18
+#define hxSCK         19
+#define vibration     34
 
 WiFiManager wm;
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 DHT dht11(DHT_PIN, DHT11);
 Ultrasonic sonar[SONAR_NUM] = {
-  Ultrasonic(5, 18),
-  Ultrasonic(19, 21)
+  Ultrasonic(25, 26),
+  Ultrasonic(27, 14)
 };
 
 int ldrValue = 0;
