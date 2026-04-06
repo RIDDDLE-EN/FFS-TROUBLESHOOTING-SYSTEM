@@ -11,14 +11,14 @@
 #define DHT_PIN       4
 #define SONAR_NUM     2
 #define MAX_DISTANCE  200
-#define button        13
-#define ledPin        5
-#define sensorIn1     32
-#define sensorIn2     33
-#define ldrPin        35
-#define hxDT          18
-#define hxSCK         19
-#define vibration     34
+#define BUTTON        13
+#define LED_PIN       5
+#define ACS712_1      32
+#define ACS712_2      33
+#define LDR_PIN       35
+#define HX_DT         18
+#define HX_SCK        19
+#define SW_420        34
 
 WiFiManager wm;
 WiFiClient espClient;
@@ -60,6 +60,7 @@ const char* wattTopic = "esp32/motor/watt";
 const char* tempTopic = "esp32/temperature";
 const char* humTopic = "esp32/humidity";
 const char* ldrTopic = "esp32/ldr";
+const char* vibTopic = "esp32/vibration";
 const char* subTopic = "esp32/test";
 
 
@@ -75,8 +76,6 @@ void sendJsonMessage(char* sensorId, const char* label, float value, const char*
   Serial.print(pubTopic);
   Serial.print(": ");
   Serial.println(buffer);
-
-  delay(5000);
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -94,10 +93,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print("Changing output to: ");
     if (message == "on") {
       Serial.print("led on");
-      digitalWrite(ledPin, HIGH);
+      digitalWrite(LED_PIN, HIGH);
     } else if (message == "off") {
       Serial.print("led Off");
-      digitalWrite(ledPin, LOW);
+      digitalWrite(LED_PIN, LOW);
     }
   }
 }
@@ -155,13 +154,13 @@ void setup_wifi() {
 }
 
 void espTest() {
-  digitalWrite(ledPin, HIGH);
-  delay(200);
-  digitalWrite(ledPin, LOW);
+  digitalWrite(LED_PIN, HIGH);
+  delay(500);
+  digitalWrite(LED_PIN, LOW);
 }
 
 
-void measureHumTemp(){
+void dhtSensor(){
   hum = dht11.readHumidity();
   temp = dht11.readTemperature();
 
@@ -178,19 +177,21 @@ void measureHumTemp(){
     Serial.print(temp);
     Serial.print("C ");
   }
+  
+  sendJsonMessage("DHT11 Sensor:", "temperature", temp, tempTopic);
+  sendJsonMessage("DHT11 Sensor:", "humidity", hum, humTopic);
 }
 
-float getVPP(){
-  float result;
+void currentSensor(char* sensorNo, uint8_t sensorPin){
   int readValue;
   int maxValue = 0;
   int minValue = 4096;
 
   uint32_t start_time = millis();
   while ((millis()-start_time) < 1000){
-    readValue = analogRead(sensorIn);
+    readValue = analogRead(sensorPin);
 
-    if (readVAlue > maxValue){
+    if (readValue > maxValue){
       maxValue = readValue;
     }
     if (readValue < minValue) {
@@ -198,29 +199,46 @@ float getVPP(){
     }
   }
 
-  result = ((maxValue - minValue) * 3.3)/4096.0;
-
-  return result;
+  voltage = ((maxValue - minValue) * 3.3)/4096.0;
+  VRMS = (voltage/20)*0.707;
+  AmpsRMS = ((VRMS*1000)/mVperAmp) - 0.3;
+  watt = (AmpsRMS*240/1.2);
+  sendJsonMessage(sensorNo, "voltage", voltage, volTopic);
+  sendJsonMessage(sensorNo, "VRMS", VRMS, vrmsTopic);
+  sendJsonMessage(sensorNo, "AmpsRMS", AmpsRMS, ampRmsTopic);
+  sendJsonMessage(sensorNo, "Wattage", watt, wattTopic);
 }
 
-void readLDR(){
-   ldrValue = analogRead(ldrPin);
-   Serial.print("LDR: ");
-   Serial.println(ldrValue);
-
+void ldrSensor(){
+   ldrValue = analogRead(LDR_PIN);
    if (!beamBlocked && ldrValue < threshold){
      beamBlocked = true;
      blockStartMicros = micros();
-     Serial.println("Measuring the bag length);
    }
    if (beamBlocked && ldrValue > threshold + hysteresis){
      beamBlocked = false;
      unsigned long blockTime = micros() - blockStartMicros;
      blockTimeSec = blockTime / 1000000.0;
-     Serial.print("block time: ");
-     Serial.print(blockTimeSec);
-     Serial.println("s");
    }
+
+   sendJsonMessage("LDR", "blockTime", blockTimeSec, ldrTopic);
+}
+
+void vibrationSensor(){
+  int vibration = digitalRead(SW_420);
+  if (vibration) {
+    Serial.println("Detected vibration...");
+  } else {
+    Serial.println("...");
+  }
+  sendJsonMessage("SW-420", "vibration", vibration, vibTopic);
+}
+
+void ultrasonicSensor(){
+  distance1 = sonar[0].read();
+  sendJsonMessage("Ultrasonic Sensor1:", "distance1", distance1, dist1Topic);
+  distance2 = sonar[1].read();
+  sendJsonMessage("Ultrasonic Sensor2:", "distance2", distance2, dist2Topic);
 }
 
 void setup() {
@@ -231,13 +249,14 @@ void setup() {
   mqttClient.setServer(mqtt_server, mqtt_port);
   mqttClient.setCallback(callback);
 
-  pinMode(button, INPUT_PULLUP);
-  pinMode(ledPin, OUTPUT);
+  pinMode(BUTTON, INPUT_PULLUP);
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(SW_420, INPUT);
 
   analogReadResolution(12);
   wm.setSaveConfigCallback(saveConfigCallback);
 
-  if (digitalRead(button) == LOW) {
+  if (digitalRead(BUTTON) == LOW) {
     Serial.println("Button pressed, starting WiFiManager...");
     wm.startConfigPortal("ESP32_CONFIG");
 
@@ -273,27 +292,13 @@ void loop() {
   if (!mqttClient.connected()) reconnect();
   mqttClient.loop();
   long now = millis();
-  if (now - lastMsg > 1000) {
+  if (now - lastMsg > 2000) {
     lastMsg = now;
-    distance1 = sonar[0].read();
-    sendJsonMessage("Ultrasonic Sensor1:", "distance1", distance1, dist1Topic);
-    distance2 = sonar[1].read();
-    sendJsonMessage("Ultrasonic Sensor2:", "distance2", distance2, dist2Topic);
-
-    voltage = getVPP();
-    VRMS = (Voltage/20)*0.707;
-    AmpsRMS = ((VRMS*1000)/mVperAmp) - 0.3;
-    watt = (AmpsRMS*240/1.2);
-    sendJsonMessage("ACS712 Sensor", "voltage", voltage, volTopic);
-    sendJsonMessage("ACS712 Sensor", "VRMS", VRMS, vrmsTopic);
-    sendJsonMessage("ACS712 Sensor", "AmpsRMS", AmpsRMS, ampRmsTopic);
-    sendJsonMessage("ACS721 Sensor", "Wattage", watt, wattTopic);
-
-    readLDR();
-    sendJsonMessage("LDR", "blockTime", blockTimeSec, ldrTopic);
-
-//    measureHumTemp();
-//    sendJsonMessage("DHT11 Sensor:", "temperature", temp, tempTopic);
-//    sendJsonMessage("DHT11 Sensor:", "humidity", hum, humTopic);
+    ultrasonicSensor();
+    currentSensor("ACS712 1", ACS712_1);
+//    currentSensor("ACS712 2", ACS712_2);
+    ldrSensor();
+    dhtSensor();
+    vibrationSensor();
   }
-} 
+}
