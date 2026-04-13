@@ -66,12 +66,7 @@ const char* ldrTopic = "esp32/ldr";
 const char* vibTopic = "esp32/vibration";
 const char* subTopic = "esp32/test";
 
-struct Creds {
-  String SSID;
-  String PASS;
-  String CLIENT_ID;
-  String CLIENT_PSK;
-};
+struct Creds { String SSID, PASS, CLIENT_ID, CLIENT_PSK; };
 
 Creds c;
 
@@ -132,7 +127,7 @@ void saveCredentials(const Creds &c) {
   }
 }
 
-void loadCredentials(Creds &c) {
+bool loadCredentials(Creds &c) {
   if (prefs.begin("Creds", true)) {
     c.SSID = prefs.getString("ssid", "");
     c.PASS = prefs.getString("password", "");
@@ -140,7 +135,9 @@ void loadCredentials(Creds &c) {
     c.CLIENT_PSK = prefs.getString("clientPSK", "");
     prefs.end();
 
-    return (ssid.length() > 0);
+    size_t len = c.SSID.length();
+
+    return (len > 0);
   }
   return false;
 }
@@ -249,19 +246,19 @@ void ultrasonicSensor(){
 void configPortal() {
   wm.addParameter(&p_client_id);
   wm.addParameter(&p_client_psk);
-  wm.startSaveConfigCallback(saveConfigCallback);
+  wm.setSaveConfigCallback(saveConfigCallback);
 
   if (digitalRead(BUTTON) == LOW) {
     Serial.println("Button pressed, starting WiFiManager...");
     wm.startConfigPortal("ESP32_CONFIG");
 
     if (shouldSaveConfig) {
-        creds c = readParams();
+        Creds c = readParams();
         saveCredentials(c);
         Serial.println("Credentials saved");
         ESP.restart();
     } else {
-      setup_wifi();
+      setup_wifi(c);
     }
   }
 }
@@ -292,7 +289,7 @@ void setup() {
   espTest();
 }
 
-void reconnect(const Creds c) {
+void reconnect(const Creds &c) {
   if (mqttClient.connected()) return;
   Serial.print("MQTT state: ");
   Serial.println(mqttClient.state());
@@ -300,7 +297,7 @@ void reconnect(const Creds c) {
     Serial.println("Connecting to MQTT...");
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
-    if (mqttClient.connect(clientId.c_str(), c.CLIENT_ID, c.CLIENT_PSK)) {
+    if (mqttClient.connect(clientId.c_str(), c.CLIENT_ID.c_str(), c.CLIENT_PSK.c_str())) {
       Serial.println("Connected. ");
       mqttClient.subscribe(subTopic);
     }
@@ -309,8 +306,8 @@ void reconnect(const Creds c) {
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) setup_wifi();
-  if (!mqttClient.connected()) reconnect();
+  if (WiFi.status() != WL_CONNECTED) setup_wifi(c);
+  if (!mqttClient.connected()) reconnect(c);
   mqttClient.loop();
   long now = millis();
   if (now - lastMsg > 2000) {
