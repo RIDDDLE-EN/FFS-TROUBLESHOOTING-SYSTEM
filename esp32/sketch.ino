@@ -1,7 +1,6 @@
 #include <WiFiManager.h>
-#include <EEPROM.h>
+#include <Preferences.h>
 #include <WiFi.h>
-#include <MyLogin.h>
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <Arduino.h>
@@ -20,7 +19,11 @@
 #define HX_SCK        19
 #define SW_420        34
 
+Preferences prefs;
 WiFiManager wm;
+WiFiManagerParameter p_client_id("mid", "MQTT Client ID", "", 32);
+const char *mqttPassHtml = "<input id = 'mpw' name'mpw' type='password' maxlength='32' placeholder='MQTT Password' />";
+WiFiManagerParameter p_client_psk("mpq", "MQTT Password", "", 32, mqttPassHtml);
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 DHT dht11(DHT_PIN, DHT11);
@@ -62,6 +65,15 @@ const char* humTopic = "esp32/humidity";
 const char* ldrTopic = "esp32/ldr";
 const char* vibTopic = "esp32/vibration";
 const char* subTopic = "esp32/test";
+
+struct Creds {
+  String SSID;
+  String PASS;
+  String CLIENT_ID;
+  String CLIENT_PSK;
+};
+
+Creds c;
 
 
 void sendJsonMessage(char* sensorId, const char* label, float value, const char* pubTopic) {
@@ -106,43 +118,36 @@ void saveConfigCallback() {
   shouldSaveConfig = true;
 }
 
-void saveCredentials(const char* newSSID, const char* newPass) {
-  Serial.println("Saving WiFi Credentials to EEPROM...");
+void saveCredentials(const Creds &c) {
 
-  for (int i = 0; i < 32; i ++) {
-    EEPROM.write(0 + i, newSSID[i]);
+  if (prefs.begin("Creds", false)) {
+    prefs.putString("ssid", c.SSID);
+    prefs.putString("password", c.PASS);
+    prefs.putString("clientId", c.CLIENT_ID);
+    prefs.putString("clientPSK", c.CLIENT_PSK);
+    prefs.end();
+    Serial.println("Credentials saved to NVS.");
+  } else {
+    Serial.println("Error: Could not open Preferences.");
   }
-
-  for (int i = 0; i < 32; i ++) {
-    EEPROM.write(100 + i, newPass[i]);
-  }
-
-  EEPROM.commit();
 }
 
-void readCredentials() {
-  for (int i = 0; i < 32; i ++) {
-    ssid[i] = EEPROM.read(0 + i);
+void loadCredentials(Creds &c) {
+  if (prefs.begin("Creds", true)) {
+    c.SSID = prefs.getString("ssid", "");
+    c.PASS = prefs.getString("password", "");
+    c.CLIENT_ID = prefs.getString("clientID", "");
+    c.CLIENT_PSK = prefs.getString("clientPSK", "");
+    prefs.end();
+
+    return (ssid.length() > 0);
   }
-  ssid[31] = '\0';
-
-  for (int i = 0; i < 32; i ++) {
-    pass[i] = EEPROM.read(100 + i);
-  }
-  pass[31] = '\0';
-
-  Serial.println("SSID ");
-  Serial.println(ssid);
-  Serial.println("Password ");
-  Serial.println(pass);
-
-  delay(5000);
+  return false;
 }
 
-void setup_wifi() {
-  readCredentials();
+void setup_wifi(const Creds &c) {
   Serial.println("connecting ...");
-  WiFi.begin(ssid, pass);
+  WiFi.begin(c.SSID, c.PASS);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -241,9 +246,37 @@ void ultrasonicSensor(){
   sendJsonMessage("Ultrasonic Sensor2:", "distance2", distance2, dist2Topic);
 }
 
+void configPortal() {
+  wm.addParameter(&p_client_id);
+  wm.addParameter(&p_client_psk);
+  wm.startSaveConfigCallback(saveConfigCallback);
+
+  if (digitalRead(BUTTON) == LOW) {
+    Serial.println("Button pressed, starting WiFiManager...");
+    wm.startConfigPortal("ESP32_CONFIG");
+
+    if (shouldSaveConfig) {
+        creds c = readParams();
+        saveCredentials(c);
+        Serial.println("Credentials saved");
+        ESP.restart();
+    } else {
+      setup_wifi();
+    }
+  }
+}
+
+Creds readParams() {
+  Creds c;
+  c.SSID = wm.getWiFiSSID().c_str();
+  c.PASS = wm.getWiFiPass().c_str();
+  c.CLIENT_ID = String(p_client_id.getValue());
+  c.CLIENT_PSK = String(p_client_psk.getValue());
+  return c;
+}
+
 void setup() {
   Serial.begin(115200);
-  EEPROM.begin(512);
   dht11.begin();
 
   mqttClient.setServer(mqtt_server, mqtt_port);
@@ -254,24 +287,12 @@ void setup() {
   pinMode(SW_420, INPUT);
 
   analogReadResolution(12);
-  wm.setSaveConfigCallback(saveConfigCallback);
-
-  if (digitalRead(BUTTON) == LOW) {
-    Serial.println("Button pressed, starting WiFiManager...");
-    wm.startConfigPortal("ESP32_CONFIG");
-
-    if (shouldSaveConfig) {
-      saveCredentials(wm.getWiFiSSID().c_str(), wm.getWiFiPass().c_str());
-      Serial.println("Credentials saved. ");
-      ESP.restart();
-    }
-  } else {
-    setup_wifi();
-  }
+  
+  configPortal();
   espTest();
 }
 
-void reconnect() {
+void reconnect(const Creds c) {
   if (mqttClient.connected()) return;
   Serial.print("MQTT state: ");
   Serial.println(mqttClient.state());
@@ -279,7 +300,7 @@ void reconnect() {
     Serial.println("Connecting to MQTT...");
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
-    if (mqttClient.connect(clientId.c_str(), CLIENTID, CLIENTPSK)) {
+    if (mqttClient.connect(clientId.c_str(), c.CLIENT_ID, c.CLIENT_PSK)) {
       Serial.println("Connected. ");
       mqttClient.subscribe(subTopic);
     }
