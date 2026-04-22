@@ -1,76 +1,62 @@
 #pragma once
 #include <Arduino.h>
 
-//
-// sensors.h - All sensors types and init/read declarations in one place
-//
-//  Usage: 
-//  	#include "sensors.h"
-//  	sensorsInit();			//call in setup
-//  	SensorData d = sensorsReadAll();//call in loop
+// 
+// Raw Sensor Data - ESP32 sends numbers only, Pi interprets
 //
 
-//Per-sensor reading structs
+struct RawSensorData {
+	uint32_t timestamp;
 
-struct DhtReading {
-	float temp;
-	float hum;
-	bool valid;
+	// DHT11
+	float dht_temp;
+	float dht_hum;
+	bool  dht_valid;
+
+	// Motor 1
+	uint16_t adc_current1;
+	int32_t  encoder1_pulses;
+	uint32_t encoder1_last_us;
+
+	// Motor 2
+	uint16_t adc_current2;
+	int32_t  encoder2_pulses;
+	uint32_t encoder2_last_us;
+
+	// Load Cell
+	int32_t hx711_raw;
+	float   hx711_cal_factor;
+
+	// Roll Centering 
+	float ultra1_cm;
+	float ultra2_cm;
+
+	// Bag Length 
+	uint16_t ldr_raw;
+	uint32_t ldr_block_start_us;
+	uint32_t ldr_last_block_us;
+
+	// Thermocouple
+	uint16_t tc_adc;
+	uint16_t tc_cont_adc;
+	float    tc_offset;
+
+	// Vibration
+	float accel_x;
+	float accel_y;
+	float accel_z;
 };
 
-struct CurrentReading {
-	float voltage;
-	float vrms;
-	float ampsRms;
-	int watt;
-};
+// 
+// Sensor API
+//
 
-struct LdrReading {
-	int	rawValue;
-	float	blockTimeSec;
-	bool 	beamJustUnblocked;
-};
+void sesnorsInit();
+RawSensorData sensorsRead();
 
-struct UltrasonicReading {
-	float dist1;
-	float dist2;
-};
+// Calibration Factor Storage (called by pi via SPI command)
+void  setLoadCellFactor(float factor);
+float getLoadCellFactor();
 
-struct LoadCellReading {
-	float weightKg;
-	bool valid;
-};
-
-struct VibrationReading {
-	bool vibrating;
-};
-
-// Aggregate of all sensor data
-
-struct SensorData {
-	DhtReading			dht;
-	CurrentReading		current1;
-	LdrReading			ldr;
-	UltrasonicReading	ultrasonic;
-	LoadCellReading		loadCell;
-	VibrationReading	vibration;
-};
-
-// Lifecycle
-
-// Initialise all sensor harware. Call once in setup().
-void sensorsInit();
-
-//Read every sensor and return an aggregate snapshot.
-SensorData sensorsReadAll();
-
-// Load Cell - Calibration API
-// Calibration is handled automatically by sensorsInit() on first boot.
-// call this explicitly only when you want to force a recalibration.
-
-// Tare, wait for the user to place the known weight, compute and store factor.
-// `knownWeightKg` should match LOADCELL_CALIB_KG in config.h.
-void loadCellCalibrate(float knownWeightKg);
-
-// Returns true if a calibration factor exists in NVS.
-bool loadCellIsCalibrated();
+void  setThermoOffset(float offset);
+float getThermoOffset();

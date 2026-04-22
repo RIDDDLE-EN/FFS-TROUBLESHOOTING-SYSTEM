@@ -1,49 +1,56 @@
 #pragma once
 
-//Pin Definitions
-#define DHT_PIN 	4
-#define BUTTON 		13
-#define LED_PIN 	5
-#define ACS712_1 	32
-#define ACS712_2 	33
-#define LDR_PIN 	35
-#define SW_420 		34
+// Environmental 
+#define DHT_PIN		4
 
-//HX711 Load Cell
-#define HX_DT			18
-#define HX_SCK			19
-#define LOADCELL_MAX_KG		20.0f
-#define LOADCELL_CALIB_KG	5.0f
-#define LOADCELL_SAMPLES	10
+// Motor monitoring (feeding motors 1 and 2)
+#define ACS712_1	32
+#define ACS712_2	33
+#define ENCODER1_A	27
+#define ENCODER1_B	14
+#define ENCODER2_A	12
+#define ENCODER2_B	13
 
-//Ultrasonic sensors (trig, echo)
-#define SONAR_NUM	2
-#define SONAR1_TRIG	25
-#define SONAR1_ECHO 	26
-#define SONAR2_TRIG	27
-#define SONAR2_ECHO 	14
+// Weight and fill control
+#define HX_DT		16
+#define HX_SCK		17
 
-//MQTT Broker
-#define MQTT_SERVER	"broker.hivemq.com"
-#define MQTT_PORT	1883
+// Roll centering 
+#define ULTRA1_TRIG	26
+#define ULTRA2_ECHO	25
+#define ULTRA2_TRIG	0
+#define ULTRA2_ECHO	2
 
-//MQTT TOPICS
-#define TOPIC_DIST1	"esp32/distance1"
-#define TOPIC_DIST2	"esp32/distance2"
-#define TOPIC_VOLTAGE	"esp32/motor/voltage"
-#define TOPIC_VRMS	"esp32/motor/vrms"
-#define TOPIC_AMP_RMS	"esp32/motor/ampRms"
-#define TOPIC_WATT	"esp32/motor/watt"
-#define TOPIC_TEMP	"esp32/temperature"
-#define TOPIC_HUM	"esp32/humidity"
-#define TOPIC_LDR	"esp32/ldr"
-#define TOPIC_WEIGHT	"esp32/loadcell/weight"
-#define TOPIC_VIB	"esp32/vibration"
-#define TOPIC_SUB	"esp32/test"
+// Bag length measurement
+#define LDR_PIN		35
+#define LASER_PIN	15
 
-//LDR Beam-Break
-#define LDR_THRESHOLD	2000
-#define LDR_HYSTERESIS	100
+// Temperature system
+#define TC_PLUS		34
+#define TC_CONTINUITY	36
 
-//Loop Timing
-#define SENSOR_INTERVAL_MS	2000
+// I2C Bus (vibration(ADX324) + IR Temp(MLX90614))
+#define I2C_SDA		21
+#define I2C_SCL		22
+
+// SPI communication to Raspberry
+// Hardware SPI pins (VSPI on ESP32)
+#define SPI_MISO	18
+#define SPI_MOSI	23
+#define SPI_SCK		18
+#define SPI_CS		5
+
+// Data-ready handshaking
+#define DATA_READY_PIN	33
+
+// 
+// Constants
+//
+
+#define SPI_FREQUENCY	10000000
+#define SPI_BUFFER_SIZE	256
+
+#define ENCODER_PPR	20
+
+#define MAIN_LOOP_HZ	100
+#define MAIN_LOOP_US	(1000000 / MAIN_LOOP_HZ)
