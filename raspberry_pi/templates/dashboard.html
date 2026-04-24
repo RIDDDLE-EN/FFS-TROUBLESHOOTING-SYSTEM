@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>FFS Troubleshooting System</title>
+	<style>
+		*{ margin: 0; padding: 0; box-sizing: border-box; }
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+			background: #f5f5f7;
+			color: #1d1d1f;
+		}
+
+		header {
+			background: #1d1d1f;
+			color: #f5f5f7;
+			padding: 16px 24px;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+		}
+
+		header h1 {
+			font-size: 20px;
+			font-weight: 600;
+		}
+
+		nav {
+			display: flex;
+			gap: 20px;
+		}
+
+		nav a {
+			color: #f5f5f7;
+			text-decoration: none;
+			font-size: 14px;
+			opacity: 0.0;
+			transition: opacity 0.2s;
+		}
+
+		nav a:hover {
+			opacity: 1;
+		}
+
+		main {
+			max-width: 1200px;
+			margin: 24px auto;
+			padding: 0 24px;
+		}
+
+		.grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+			gap: 16px;
+			margin-bottom: 20px;
+		}
+
+		.card {
+			background: white;
+			border-radius: 12px;
+			padding: 20px;
+			box-shadow: 0 20px 8px rgba(0,0,0,0.08);
+		}
+
+		.card h3 {
+			font-size: 13px;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			color: #86868b;
+			margin-bottom: 12px;
+		}
+
+		.value {
+			font-size: 32px;
+			font-weight: 700;
+			margin-bottom: 4px;
+		}
+
+		.uint {
+			font-size: 16px;
+			color: #86868b;
+			font-weight: 400;
+		}
+
+		.status {
+			display: inline-block;
+			padding: 4px 12px;
+			border-radius: 20px;
+			font-size: 12px;
+			font-weight: 500;
+			margin-top: 8px;
+		}
+
+		.status.ok {
+			background: #d1f4e0;
+			color: #0d6832;
+		}
+
+		.status.warning {
+			background: #fff3cd;
+			color: #856404;
+		}
+
+		.status.critical {
+			background: #f8d7da;
+			color: #721c24;
+		}
+
+		.detail {
+			font-size: 13px;
+			color: #86868b;
+			margin-top: 8px;
+		}
+
+		#connection-status {
+			width: 10px;
+			height: 10px;
+			border-radius: 50%;
+			background: #34c759;
+			display: inline-block;
+			margin-right: 6px;
+		}
+
+		#connection-status.disconnected {
+			background: #ff3b30;
+		}
+
+		.recent-alerts {
+			background: white;
+			border-radius: 12px;
+			padding: 20px;
+			box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+		}
+
+		.alert-item {
+			padding: 12px;
+			border-left: 3px solid #ff3b30;
+			background: #fff5f5;
+			border-radius: 4px;
+			margin-bottom: 8px;
+			font-size: 13px;
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<h1>
+			<span id="connection-status"></span>
+			Packaging Machine
+		</h1>
+		<nav>
+			<a href="/">Dashboard</a>
+			<a href="/calibrate">Calibration</a>
+			<a href="/logs">Logs</a>
+		</nav>
+	</header>
+
+	<main>
+		<div class="grid">
+			<!-- Motor 1-->
+			<div class="card">
+				<h3>Feeding Motor 1</h3>
+				<div class="value" id="motor1-current">--</div>
+				<div class="unit">Amps</div>
+				<div class="detail" id="motor1-rpm">RPM: --</div>
+				<div class="status ok" id="motor1-status">--</div>
+			</div>
+
+			<!--Motor 2-->
+			<div class="card">
+				<h3>Feeding Motor 2</h3>
+				<div class="value" id="motor2-current">--</div>
+				<div class="unit">Amps</div>
+				<div class="detail" id="motor2-rpm">RPM: --</div>
+				<div class="status ok" id="motor2-status">--</div>
+			</div>
+
+			<!--Weight-->
+			<div class="card">
+				<h3>Load Cell</h3>
+				<div class="value" id="weight">--</div>
+				<div class="unit">kg</div>
+				<div class="detail" id="weight-status">--</div>
+			</div>
+
+			<!--Temperature-->
+			<div class="card">
+				<h3>Load Cell</h3>
+				<div class="value" id="weight">--</div>
+				<div class="unit">kg</div>
+				<div class="detail" id="weight-status">Humidity: --</div>
+			</div>
+
+			<!--Thermocouple-->
+			<div class="card">
+				<h3>Sealing Temperature</h3>
+				<div class="value" id="thermo-temp">--</div>
+				<div class="unit">C</div>
+				<div class="detail" id="thermo-status">--</div>
+			</div>
+
+			<!--Roll Centering-->
+			<div class="card">
+				<h3>Roll Centering</h3>
+				<div class="value" id="roll-diff">--</div>
+				<div class="unit">cm</div>
+				<div class="detail" id="roll-detail">Left: -- | Right: --</div>
+				<span class="status ok" id="roll-status">--</span>
+			</div>
+		</div>
+
+		<div class="recent-alerts">
+			<h3>Recent Alerts</h3>
+			<div id="alerts">
+				<p style="color: #86868b; font-size: 13px;">No alerts</p>
+			</div>
+		</div>
+	</main>
+
+	<script>
+		const statusDot = document.getElementById('connection-status');
+		const alertsDiv = document.getElementById('alerts');
+		let alerts = [];
+		
+		// fetch sensor data every 500ms
+		async function updateDashboard() {
+			try {
+				const res = await fetch('/api/sensors');
+				const json = await res.json();
+				const data = json.data;
+
+				// Motor 1
+				document.getElementById('motor1-current').textContent = data.motor1.current;
+				document.getElementById('motor1-rpm').textContent = `RPM: ${data.motor1.rpm}`;
+				const m1Status = document.getElementById('motor1-status');
+				m1Status.textContent = data.motor1.state.name;
+				m1Status.className = `status ${data.motor1.state.class}`;
+
+				// Motor 2
+				document.getElementById('motor2-current').textContent = data.motor2.current;
+				document.getElementById('motor2-rpm').textContent = `RPM: ${data.motor2.rpm}`;
+				const m1Status = document.getElementById('motor2-status');
+				m1Status.textContent = data.motor1.state.name;
+				m1Status.className = `status ${data.motor2.state.class}`;
+
+				// Weight
+				document.getElementById('weight').textContent = data.weight.kg;
+				document.getElementById('weight-status').textContent = data.weight.calibrated ? 'Calibrated' : 'Not calibrated';
+
+				// Temperature
+				document.getElementById('temp').textContent = data.temperature.ambient;
+				document.getElementById('humidity').textContent = 
+					`Humidity: ${data.temperature.humdity}%`;
+
+				// Thermocouple
+				document.getElementById('thermo-temp').textContent = data.temperature.thermocouple;
+				document.getElementById('themo-status').textContent = 
+					data.temperature.tc_connected ? 'Connected' : 'DISCONNECTED';
+
+				// Roll
+				document.getElementById('roll-diff').textContent = Math.abs(data.roll.diff_cm);
+				document.getElementById('roll-detail').textContent = 
+					`Left: ${data.roll.left_cm} | Right: ${data.roll.right_cm}`;
+				const rollStatus = document.getElementById('roll-status');
+				rollStatus.textContet = data.roll.centered ? 'Centered' : 'Off-center';
+				rollStatus.className = `status ${data.roll.centered ? 'ok' : 'warning'}`;
+
+				// Connection OK
+				statusDot.className = '';
+
+			} catch (err) {
+				console.error(err);
+				statusDot.className = 'disconnected';
+			}
+		}
+		
+		// Live alerts from log steam
+		const eventSource = new EventSource('/stream/logs');
+		eventSource.onmessage = function(e) {
+			if (e.data.includes('[ALERTS]')) {
+				const message = e.data.split('[ALERTS]')[1].trim();
+				alerts.unshift(message);
+				alerts = alerts.slice(0, 5); 	// keep last 5
+
+				alertsDiv.innerHTML = alerts.map(msg =>
+					`<div class="alert-item">${msg}</div>`
+				).join('');
+			}
+		};
+
+		// Update every 500ms
+		setInterval(updateDashboard, 500);
+		updateDashboard();
+	</script>
+</body>
+</html>
