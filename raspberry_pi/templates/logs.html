@@ -132,6 +132,7 @@
 		display: flex;
 		gap: 20px;
 	}
+    }
     </style>
 </head>
 <body>
@@ -163,9 +164,9 @@
 	    <input type="text" id="search" placeholder="Search logs..." oninput="applyFilter()">
 
 	    <button onclick="clearLogs()">Clear</button>
-	    <button onclick="downloadLogs()">Downloads</button>
+	    <button onclick="downloadLogs()">Download</button>
 
-	    <div style="margin-left: auto; color; #86868b; font-size: 12px;">
+	    <div style="margin-left: auto; color: #86868b; font-size: 12px;">
 		    Auto-scroll: <input type="checkbox" id="autoscroll" checked>
 	    </div>
     </div>
@@ -174,7 +175,7 @@
 
     <div class="stats">
 	    <span>Total lines: <strong id="total-lines">0</strong></span>
-	    <span>Viscible: <strong id="viscible-lines">0</strong></span>
+	    <span>Visible: <strong id="visible-lines">0</strong></span>
 	    <span>Alerts: <strong id="alert-count">0</strong></span>
     </div>
 
@@ -191,19 +192,19 @@
 	    // Live log streaming via Server-Sent Events
 	    const eventSource = new EventSource('/stream/logs');
 
-	    eventSource.onopen = funtion() {
+	    eventSource.onopen = function() {
 		    connectionIndicator.classList.remove('disconnected');
 	    };
 
 	    eventSource.onmessage = function(e) {
-		    if (e.data.startsWith(':')) return; 	// Keep alive
+		    if (e.data.startsWith(':')) return;  	// Keep alive
 
 		    const logText = e.data;
 		    logs.push(logText);
 
 		    // Count alerts
-		    if (logText.includes('[ALERTS]')) {
-			    alertCount++
+		    if (logText.includes('[ALERT]')) {
+			    alertCount++;
 			    document.getElementById('alert-count').textContent = alertCount;
 		    }
 
@@ -216,20 +217,20 @@
 		    const message = logText.split('] ').slice(2).join('] ');
 
 		    // Create log line element
-		    const line document.createElement('div');
+		    const line = document.createElement('div');
 		    line.className = 'log-line new';
 		    line.dataset.tag = tag;
 		    line.dataset.text = logText.toLowerCase();
 
 		    line.innerHTML = `
-		    	<span class="timestamp">[${timestamp}]</span>
-			<span class="tag" ${tag}"> ${tag}</span>
-			${message}
+			    <span class="timestamp">[${timestamp}]</span>
+			    <span class="tag ${tag}">${tag}</span>
+			    ${message}
 		    `;
 
 		    logsContainer.appendChild(line);
 
-		    // Remove 'new class after animation
+		    // Remove 'new' class after animation
 		    setTimeout(() => line.classList.remove('new'), 300);
 
 		    // Auto-scroll if enabled
@@ -239,8 +240,8 @@
 
 		    // Keep max 500 lines
 		    if (logs.length > 500) {
-			    logs.shitft();
-			    logsContainer.removeChile(logsContainer.firstChild);
+			    logs.shift();
+			    logsContainer.removeChild(logsContainer.firstChild);
 		    }
 
 		    updateStats();
@@ -252,13 +253,13 @@
 		    const searchValue = searchInput.value.toLowerCase();
 
 		    const lines = logsContainer.querySelectorAll('.log-line');
-		    let viscibleCount = 0;
+		    let visibleCount = 0;
 
 		    lines.forEach(line => {
 			    const tag = line.dataset.tag;
 			    const text = line.dataset.text;
 
-			    let show = ture;
+			    let show = true;
 
 			    // Tag Filter
 			    if (filterValue !== 'all' && tag !== filterValue) {
@@ -271,16 +272,16 @@
 			    }
 
 			    line.classList.toggle('hidden', !show);
-			    if (show) viscibleCount++;
+			    if (show) visibleCount++;
 		    });
 
-		    document.getElementById('viscible-lines').textContent = viscibleCount;
+		    document.getElementById('visible-lines').textContent = visibleCount;
 	    }
 
 	    function updateStats() {
-		    document.getElementById('total-lines').textContent = logs.lenght;
-		    const viscibleCount = logsContainer.querySelectorAll('.log-line:not(.hidden)').length;
-		    document.getElementById('viscible-lines').textContent = viscibleCount;
+		    document.getElementById('total-lines').textContent = logs.length;
+		    const visibleCount = logsContainer.querySelectorAll('.log-line:not(.hidden)').length;
+		    document.getElementById('visible-lines').textContent = visibleCount;
 	    }
 
 	    function clearLogs() {
@@ -296,7 +297,7 @@
 	    function downloadLogs() {
 		    const text = logs.join('\n');
 		    const blob = new Blob([text], { type: 'text/plain' });
-		    const url = URL.creadObjectURL(blob);
+		    const url = URL.createObjectURL(blob);
 
 		    const a = document.createElement('a');
 		    a.href = url;
