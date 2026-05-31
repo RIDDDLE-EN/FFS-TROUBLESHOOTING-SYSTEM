@@ -16,6 +16,8 @@
 // Bag length
 #define LDR_PIN		27
 
+// LASER
+#define LASER_PIN	13
 // LoadCell
 #define HX_DT		21
 #define HX_SCK		22
@@ -46,8 +48,11 @@
 #define SENSITIVITY	0.066f
 
 // Rotary encoder
-#define ENCODER_PPR	20
-#define ENCODER_STOPPED_US	500000UL
+#define ENCODER_PPR	20.f
+#define ENCODER_STOPPED_US 200000UL
+#define ENCODER_SAMPLE_MS 500
+#define RPM_MAX		999
+#define MOTOR_MIN_RPM	5.0f
 
 // Thermocouple 
 #define MV_PER_DEGC	0.041f

@@ -26,23 +26,20 @@ struct RawSensorData {
 
 	// Motors
 	uint16_t current1;
-	int32_t encoder1_pulses;
 	
 	uint16_t current2;
-	int32_t encoder2_pulses;
 
 	// Load cell
 	int32_t hx_raw;
 
 	// Ultrasonics
-	float ultra1;
-	float ultra2;
+	float ultra1_cm;
+	float ultra2_cm;
 
 	// LDR
 	uint16_t ldr_raw;
 	bool     ldr_beam_blocked;
-	uint32_t ldr_block_start_us;
-	uint32_t ldr_last_block_us;
+	uint32_t ldr_block_duration_us;
 
 	// Thermocouple
 	uint16_t tc_adc;
@@ -52,6 +49,14 @@ struct RawSensorData {
 	float accel_x;
 	float accel_y;
 	float accel_z;
+};
+
+struct VibrationData {
+	uint32_t timestamp_ms;
+	float    rms_amplitude;
+	float    peak_amplitude;
+	float    dominant_freq;
+	float    freq_magnitude;
 };
 
 // Interpreted Sensor Data
@@ -68,13 +73,11 @@ struct __attribute__((packed)) InterpretedSensorData {
 	float current1;
 	float rpm1;
 	bool  motor1_running;
-	bool  motor1_stalled;
 
 	// Motor 2
 	float current2;
 	float rpm2;
 	bool  motor2_running;
-	bool  motor2_stalled;
 
 	// Load cell
 	float weight_grams;
@@ -98,6 +101,7 @@ struct __attribute__((packed)) InterpretedSensorData {
 
 	// Vibration
 	float vibration_peak_g;
+	float vibration_rms_g;
 	float vibration_freq_mag;
 	float vibration_freq_hz;
 	bool  vibration_knife_confirmed;

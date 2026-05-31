@@ -1,33 +1,21 @@
-#include <Arduino.h>
-#include "config.h"
 #include "sensors.h"
-#include "spi_protocol.h"
+#include "spi_comms."
 
-static unsigned long lastLoop = 0;
-
-void setup() {
+void  setup() {
 	Serial.begin(115200);
-	delay(1000);
 
-	Serial.println("ESP32 Raw Sensor Array (SPI Slave)");
-
+	loggerInit();
 	sensorsInit();
-	spiInit();
+	spiCommsInit();
 
-	lastLoop = micros();
-	Serial.println("[Ready] Streaming raw data at 100 Hz\n");
+	xTaskCreatePinnedToCore(sensorReadTask, "SensorRead", 4096, nullptr, 5, nullptr, 1);
+	xTaskCreatePinnedToCore(vibrationAnalysisTask, "VibrationFFT", 8192, nullptr, 4, nullptr, 1);
+	xTaskCreatePinnedToCore(dataProcessingTask, "DataProcess", 4096, nullptr, 3, nullptr, 1);
+	xTaskCreatePinnedToCore(spiCommTask, "SPIComm", 4096, nullptr, 6, nullptr, 0);
+
+	LOG("[MAIN] All tasks started - free heap: %u bytes", (unsigned)esp_get_free_heap_size());
 }
 
 void loop() {
-	unsigned long now = micros();
-	if (now - lastLoop < MAIN_LOOP_US) {
-		delayMicroseconds(MAIN_LOOP_US - (now - lastLoop));
-		now = micros();
-	}
-	lastLoop = now;
-
-	RawSensorData data = sensorsRead();
-	spiUpdatData(data);
-	spiSignalReady();
-	spiProcessCommands();
+	vTaskDelay(pdMS_TO_TICKS(5000));
 }
