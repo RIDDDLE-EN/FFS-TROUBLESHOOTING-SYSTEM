@@ -37,5 +37,5 @@ bool logDequeue(char *buf) {
 
 int logPending() {
 	if (!s_logQueue) return 0;
-	return (int)uxQueueMessageWaiting(s_logQueue);
+	return (int)uxQueueMessagesWaiting(s_logQueue);
 }

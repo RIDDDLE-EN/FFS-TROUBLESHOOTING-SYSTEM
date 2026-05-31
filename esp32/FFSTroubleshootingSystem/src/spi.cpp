@@ -13,7 +13,7 @@ static WORD_ALIGNED_ATTR uint8_t s_txBuf[SPI_PACKET_SIZE];
 static WORD_ALIGNED_ATTR uint8_t s_rxBuf[SPI_PACKET_SIZE];
 static bool s_calibrationActive = false;
 
-static uin8_t calculateCRC8(const uint8_t *data, size_t len) {
+static uint8_t calculateCRC8(const uint8_t *data, size_t len) {
 	uint8_t crc = 0x00;
 	for (size_t i = 0; i < len; i++) {
 		crc ^= data[i]; 
@@ -37,13 +37,13 @@ static void sendResponseFrame(uint8_t msgType, const void *payload, uint8_t payl
 	s_txBuf[SPI_PACKET_SIZE - 1] = calculateCRC8(s_txBuf, SPI_PACKET_SIZE - 1);
 }
 
-static bool isFrmeValid(const uint8_t *buf) {
+static bool isFrameValid(const uint8_t *buf) {
 	if (buf[0] != SPI_START_FROM_PI) return false;
 	return buf[SPI_PACKET_SIZE -1] == calculateCRC8(buf, SPI_PACKET_SIZE - 1);
 }
 
 void spiCommsInit() {
-	gpio_set_diretion((gpio_num_t)SPI_DATA_READY, GPIO_MODE_OUTPUT);
+	gpio_set_direction((gpio_num_t)SPI_DATA_READY, GPIO_MODE_OUTPUT);
 	gpio_set_level((gpio_num_t)SPI_DATA_READY, 0);
 
 	spi_bus_config_t busCfg = {};
@@ -74,8 +74,8 @@ void spiCommTask(void *parameter) {
 		if (hasLog) {
 			sendResponseFrame(MSG_LOG, logBuffer, (uint8_t)strnlen(logBuffer, LOG_MAX_MSG_LEN -1) + 1);
 		} else if (hasSensor && outboundDataPending) {
-			xQueueReceive(queueProcessedToSPI, &localDAtaFrame, 0);
-			sendRespondeFrame(MSG_SENSOR_DT, &localDataFrame, sizeof(InterpretedSensorData));
+			xQueueReceive(queueProcessedToSPI, &localDataFrame, 0);
+			sendResponseFrame(MSG_SENSOR_DATA, &localDataFrame, sizeof(InterpretedSensorData));
 			outboundDataPending = false;
 			gpio_set_level((gpio_num_t)SPI_DATA_READY, 0);
 		} else {
@@ -101,7 +101,7 @@ void spiCommTask(void *parameter) {
 					sendResponseFrame(MSG_PONG, nullptr, 0);
 					break;
 				case CMD_READ_SENSORS:
-					if (xQueueReceive(queueProcessedToSPI, &localDatFrame, 0) == pdTRUE) {
+					if (xQueueReceive(queueProcessedToSPI, &localDataFrame, 0) == pdTRUE) {
 						sendResponseFrame(MSG_SENSOR_DATA, &localDataFrame, sizeof(InterpretedSensorData));
 					} else {
 						sendResponseFrame(MSG_IDLE, nullptr, 0);
@@ -121,8 +121,8 @@ void spiCommTask(void *parameter) {
 					tareLoadCell();
 					vTaskDelay(pdMS_TO_TICKS(100));
 					{
-						int32_t rawWeightAvg = readRAwWeightAverage(10);
-						sendResponseFrame(MSG_CAL_RAW_WEIGHT, &rawWeightAvg, sizeof(rawweightAvg));
+						int32_t rawWeightAvg = readRawWeightAverage(10);
+						sendResponseFrame(MSG_CAL_RAW_WEIGHT, &rawWeightAvg, sizeof(rawWeightAvg));
 					}
 					break;
 				case CMD_CAL_FACTOR:
@@ -131,7 +131,7 @@ void spiCommTask(void *parameter) {
 						memcpy(&scaleFactor, payloadPtr, sizeof(float));
 						if (scaleFactor != 0.0f) {
 							setLoadCellFactor(scaleFactor);
-							s_calibrationActie = false;
+							s_calibrationActive = false;
 							sendResponseFrame(MSG_ACK, nullptr, 0);
 						} else {
 							sendResponseFrame(MSG_NACK, nullptr, 0);

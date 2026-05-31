@@ -38,20 +38,20 @@ void IRAM_ATTR encoder2_ISR() {
 	enc2.forward = (digitalRead(ENCODER2_DT) == HIGH);
 }
 
-static float filteredRPM(const EncoderState &enc) {
+static float filteredRPM(EncoderState &enc) {
 	uint32_t now = millis();
 	uint32_t elapsedMs = now - enc.lastSample;
 
 	if (elapsedMs >= ENCODER_SAMPLE_MS) {
 		noInterrupts();
 		long counter = enc.counter;
-		enc.counter = 0;
+		enc.counter= 0;
 		bool direction = enc.forward;
 		interrupts();
 
 		float elapsedMins = (float)elapsedMs / 60000.0f;
-		float rawRpm = ((float)pulseCount / ENCODER_PPR) / elapsedMins;
-		if (pcounter == 0 && (elapsedMs * 1000UL > ENCODER_STOPPED_US)) rawRpm = 0.0f;
+		float rawRpm = ((float)counter / ENCODER_PPR) / elapsedMins;
+		if (counter == 0 && (elapsedMs * 1000UL > ENCODER_STOPPED_US)) rawRpm = 0.0f;
 
 		const float ALPHA = 0.3f;
 		float targetRpm = direction ? rawRpm : -rawRpm;
@@ -74,7 +74,7 @@ static float thermoOffset   = 0.0f;
 SemaphoreHandle_t mutexCalibration = nullptr;
 
 void setLoadCellFactor(float factor) {
-	if (xSemaphoreTake(mutextCalibration, pdMS_TO_TICKS(100)) != pdTRUE) return;
+	if (xSemaphoreTake(mutexCalibration, pdMS_TO_TICKS(100)) != pdTRUE) return;
 	loadCellFactor = factor;
 	if (prefs.begin("cal", false)) {
 		prefs.putFloat("lc-factor", factor);
@@ -149,7 +149,7 @@ void sensorsInit(){
 	queueVibrationToProcessing = xQueueCreate(2, sizeof(VibrationData));
 	queueProcessedToSPI	= xQueueCreate(2, sizeof(InterpretedSensorData));
 
-	pinMode(LASER_PIN, OUTUPUT);
+	pinMode(LASER_PIN, OUTPUT);
 	digitalWrite(LASER_PIN, HIGH);
 
 	pinMode(ENCODER1_CLK, INPUT_PULLUP);
@@ -157,10 +157,10 @@ void sensorsInit(){
 	pinMode(ENCODER2_CLK, INPUT_PULLUP);
 	pinMode(ENCODER2_DT,  INPUT_PULLUP);
 
-	analogReadReasolution(12);
+	analogReadResolution(12);
 	analogSetAttenuation(ADC_11db);
 
-	attachInterrupt(digitalPinToInterrupt(ENCOER1_CLK), encoder1_ISR, RISING);
+	attachInterrupt(digitalPinToInterrupt(ENCODER1_CLK), encoder1_ISR, RISING);
 	attachInterrupt(digitalPinToInterrupt(ENCODER2_CLK), encoder2_ISR, RISING);
 
 	Wire.begin(MPU_SDA, MPU_SCL);
@@ -251,6 +251,7 @@ void sensorReadTask(void *parameter) {
 			data.ldr_beam_blocked = beamBlocked;
 			data.ldr_block_start_us = beamBlocked ? blockStartMicros : 0;
 		}
+		data.ldr_block_duration_us = lastBlockDurationMicros;
 
 		// THERMOCOUPLE
 		data.tc_adc = analogRead(TC_PLUS);
@@ -270,7 +271,7 @@ void vibrationAnalysisTask(void *parameter) {
 	ArduinoFFT<float> FFT(vReal, vImag, FFT_SAMPLES, (float)SAMPLE_RATE);
 	uint16_t sampleIndex = 0;
 
-	TickType_t	xLastWakeTime 	= xTaskGetCount();
+	TickType_t	xLastWakeTime 	= xTaskGetTickCount();
 	const TickType_t xPeriod	= pdMS_TO_TICKS(1000 / SAMPLE_RATE);
 	
 	while (true) {
@@ -300,8 +301,8 @@ void vibrationAnalysisTask(void *parameter) {
 			float rmsAmplitude = sqrtf(sumSquares / FFT_SAMPLES);
 			if (rmsAmplitude < 0.02f) {rmsAmplitude = 0.0f; peakVal = 0.0f; }
 
-			FFT.windowing(fft_window_type::Hamming, fft_direction::forward);
-			FFT.compute(fft_direction::forward);
+			FFT.windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+			FFT.compute(FFT_FORWARD);
 			FFT.complexToMagnitude();
 
 			float peakFreq = 0.0f, peakMag = 0.0f;
@@ -324,7 +325,7 @@ void vibrationAnalysisTask(void *parameter) {
 			xQueueOverwrite(queueVibrationToProcessing, &vibData);
 			sampleIndex = 0;
 		}
-		vtaskDelayUntil(&xLastWakeTime, xPeriod);
+		vTaskDelayUntil(&xLastWakeTime, xPeriod);
 	}
 }
 
@@ -354,11 +355,11 @@ void dataProcessingTask(void *parameter) {
 	
 
 	while (true) {
-		if (xQueueRecieve(queueRawToProcessing, &rawDat, pdMS_TO_TICKS(50)) != pdTRUE) {
+		if (xQueueReceive(queueRawToProcessing, &rawData, pdMS_TO_TICKS(50)) != pdTRUE) {
 			vTaskDelay(pdMS_TO_TICKS(1));
 			continue;
 		}
-		xQueueRecieve(queueVibrationToProcessing, &vibData, 0);
+		xQueueReceive(queueVibrationToProcessing, &vibData, 0);
 
 		output = {};
 		output.timestamp_ms = rawData.timestamp_ms;
@@ -373,13 +374,13 @@ void dataProcessingTask(void *parameter) {
 
 		filteredCurrent1 = (0.1f * rawData.current1) + (0.9f * filteredCurrent1);
 		float v1 = (filteredCurrent1 * VREF) / ADC_RESOLUTION;
-		output.current1		= (v1 - ZERO_CURRENT) / SENSITIVITY;
+		output.current1		= (v1 - ZERO_CURRENT_V) / SENSITIVITY;
 		output.rpm1		= filteredRPM(enc1);
 		output.motor1_running	= (fabsf(output.rpm1) > MOTOR_MIN_RPM);
 
 		filteredCurrent2 = (0.1f * rawData.current2) + (0.9f * filteredCurrent1);
 		float v2		= (filteredCurrent2 * VREF) / ADC_RESOLUTION;
-		output.current2 	= (v2 - ZERO_CURRENT) / SENSITIVITY;
+		output.current2 	= (v2 - ZERO_CURRENT_V) / SENSITIVITY;
 		output.motor2_running 	= (fabsf(output.rpm2) > MOTOR_MIN_RPM);
 
 		float lcf = getLoadCellFactor();
@@ -406,7 +407,7 @@ void dataProcessingTask(void *parameter) {
 
 		filteredTcAdc = (0.1f * rawData.tc_adc) + (0.9f * filteredTcAdc);
 		float tc_mv = ADC_TO_MV(filteredTcAdc);
-		output.tc_connected = (rawData.tc_cont_adc > 2000);
+		output.tc_connected = (rawData.tc_cont > 2000);
 		if (output.tc_connected) {
 			output.seal_temp = (tc_mv / MV_PER_DEGC) + getThermoOffset();
 			output.thermocouple_ok = true;

@@ -26,8 +26,12 @@ struct RawSensorData {
 
 	// Motors
 	uint16_t current1;
+	uint16_t encoder1_counter;
+	uint32_t encoder1_last_us;
 	
 	uint16_t current2;
+	uint16_t encoder2_counter;
+	uint32_t encoder2_last_us;
 
 	// Load cell
 	int32_t hx_raw;
@@ -39,6 +43,7 @@ struct RawSensorData {
 	// LDR
 	uint16_t ldr_raw;
 	bool     ldr_beam_blocked;
+	uint32_t ldr_block_start_us;
 	uint32_t ldr_block_duration_us;
 
 	// Thermocouple
@@ -109,6 +114,7 @@ struct __attribute__((packed)) InterpretedSensorData {
 	// Calibration handshake
 	bool    calibration_active;
 	int32_t cal_raw_weight;
+};
 
 static_assert(sizeof(InterpretedSensorData) <= 252,
 	       	"InterpretedSensorData too large for SPI");

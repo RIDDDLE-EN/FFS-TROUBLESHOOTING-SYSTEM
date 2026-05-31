@@ -7,6 +7,13 @@
 #define ACS712_1	34
 #define ACS712_2	35
 
+// Roll centering
+#define ULTRA1_TRIG 1
+#define ULTRA1_ECHO 3
+
+#define ULTRA2_TRIG 16
+#define ULTRA2_ECHO 15
+
 // Motor RPM
 #define ENCODER1_CLK	32
 #define ENCODER1_DT	33
@@ -31,8 +38,8 @@
 #define MPU_SCL		22
 
 // SPI
-#define MOSI		23
-#define MISO		19
+#define SPI_MOSI		23
+#define SPI_MISO		19
 #define SPI_CLK		18
 #define SPI_CS		5
 #define SPI_DATA_READY	17

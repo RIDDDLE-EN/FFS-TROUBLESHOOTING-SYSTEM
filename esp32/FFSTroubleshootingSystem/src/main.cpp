@@ -1,5 +1,8 @@
+#include <Arduino.h>
+
 #include "sensors.h"
-#include "spi_comms."
+#include "spi_comms.h"
+#include "logger.h"
 
 void  setup() {
 	Serial.begin(115200);
