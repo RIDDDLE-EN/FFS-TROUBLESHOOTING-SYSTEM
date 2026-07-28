@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid cols-2">
+  <section class="card">
+    <div class="head">
+      <span>Event Logs</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="input" id="logHours" style="min-width:130px" onchange="refreshLogs()">
+          <option value="1">Last 1h</option>
+          <option value="6">Last 6h</option>
+          <option value="24" selected>Last 24h</option>
+          <option value="72">Last 72h</option>
+        </select>
+      </div>
+    </div>
+    <div class="body">
+      <div class="log-list" id="logsBox"><div class="subtle">Loading...</div></div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="head">Alerts</div>
+    <div class="body">
+      <div class="log-list" id="alertsBox"><div class="subtle">Loading...</div></div>
+    </div>
+  </section>
+</div>
+{% endblock %}
