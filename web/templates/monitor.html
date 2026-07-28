@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid cols-4">
+  <div class="card stat"><div class="label">Ambient Temp</div><div class="value" id="ambTemp">--</div><div class="subtle">°C</div></div>
+  <div class="card stat"><div class="label">Humidity</div><div class="value" id="hum">--</div><div class="subtle">%</div></div>
+  <div class="card stat"><div class="label">Thermocouple</div><div class="value" id="tcTemp">--</div><div class="subtle">°C</div></div>
+  <div class="card stat"><div class="label">Weight</div><div class="value" id="weightStat">--</div><div class="subtle">g</div></div>
+</div>
+
+<div class="grid cols-3" style="margin-top:18px">
+  <section class="card chart-card">
+    <div class="head">Temperature & Humidity</div>
+    <div class="body"><canvas id="chartTemp" height="220"></canvas></div>
+  </section>
+  <section class="card chart-card">
+    <div class="head">Roll Centering</div>
+    <div class="body"><canvas id="chartRoll" height="220"></canvas></div>
+  </section>
+  <section class="card chart-card">
+    <div class="head">Weight & Feed Cycle</div>
+    <div class="body"><canvas id="chartWeight" height="220"></canvas></div>
+  </section>
+</div>
+
+<div class="grid cols-2" style="margin-top:18px">
+  <section class="card">
+    <div class="head">Snapshot</div>
+    <div class="body" id="presentationBox">Loading...</div>
+  </section>
+  <section class="card">
+    <div class="head">Expected Ranges</div>
+    <div class="body" id="rangesBox">Loading...</div>
+  </section>
+</div>
+
+<div class="grid cols-2" style="margin-top:18px">
+  <section class="card">
+    <div class="head">Weight Status</div>
+    <div class="body" id="weightBox">Loading...</div>
+  </section>
+  <section class="card">
+    <div class="head">Roll Status</div>
+    <div class="body" id="rollBox">Loading...</div>
+  </section>
+</div>
+{% endblock %}
