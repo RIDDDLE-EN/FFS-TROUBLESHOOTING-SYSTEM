@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid cols-2">
+  <section class="card">
+    <div class="head">Process Settings</div>
+    <div class="body">
+      <div class="form-grid">
+        <div><label class="subtle">Bag length (cm)</label><input class="input" id="bag_length" type="number" step="0.1" value="18"></div>
+        <div><label class="subtle">Target weight (g)</label><input class="input" id="target_weight" type="number" step="0.1" value="250"></div>
+        <div><label class="subtle">Seal temperature (°C)</label><input class="input" id="seal_temp" type="number" step="0.1" value="160"></div>
+        <div><label class="subtle">Thermocouple offset (°C)</label><input class="input" id="thermo_offset" type="number" step="0.1" value="0"></div>
+        <div><label class="subtle">Fan ON temp (°C)</label><input class="input" id="fan_temp_on" type="number" step="0.1" value="32"></div>
+        <div><label class="subtle">Fan OFF temp (°C)</label><input class="input" id="fan_temp_off" type="number" step="0.1" value="30"></div>
+        <div><label class="subtle">Roll PID Kp</label><input class="input" id="pid_kp" type="number" step="0.01" value="0.9"></div>
+        <div><label class="subtle">Roll PID Ki</label><input class="input" id="pid_ki" type="number" step="0.01" value="0.05"></div>
+        <div><label class="subtle">Roll PID Kd</label><input class="input" id="pid_kd" type="number" step="0.01" value="0.12"></div>
+        <div><label class="subtle">Hold time (s)</label><input class="input" id="hold_time" type="number" step="0.1" value="0.8"></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn primary" onclick="saveSettings()">Save settings</button>
+        <button class="btn ghost" onclick="refreshSettings()">Reload</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="head">Motor and Output Control</div>
+    <div class="body">
+      <div class="form-grid">
+        <div>
+          <label class="subtle">Feed pulse duration (ms)</label>
+          <input class="input" id="feedPulseMs" type="number" step="10" value="600">
+        </div>
+        <div>
+          <label class="subtle">Feed pause duration (ms)</label>
+          <input class="input" id="feedPauseMs" type="number" step="10" value="400">
+        </div>
+        <div>
+          <label class="subtle">Stepper step size</label>
+          <input class="input" id="stepperStep" type="number" step="0.1" value="1.0">
+        </div>
+        <div>
+          <label class="subtle">Fan state</label>
+          <select class="input" id="fanState">
+            <option value="auto">Auto</option>
+            <option value="on">Force ON</option>
+            <option value="off">Force OFF</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn primary" onclick="sendControl('/api/control/feed/pulse', {duration_ms: Number(qs('feedPulseMs').value), pause_ms: Number(qs('feedPauseMs').value)})">Pulse feed</button>
+        <button class="btn ghost" onclick="sendControl('/api/control/fan', {mode: qs('fanState').value})">Apply fan</button>
+        <button class="btn ghost" onclick="sendControl('/api/control/stepper/center', {step: Number(qs('stepperStep').value)})">Center roll</button>
+        <button class="btn danger" onclick="sendControl('/api/control/emergency_stop')">Emergency stop</button>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
