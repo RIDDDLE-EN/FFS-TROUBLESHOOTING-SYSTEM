@@ -1,38 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="grid cols-4">
-    <div class="card stat"><div class="label">System</div><div class="value" id="sysStatus">--</div><div class="subtle">Pi backend and UI state</div></div>
-    <div class="card stat"><div class="label">Sensors</div><div class="value" id="sysStatus">--</div><div class="subtle">Latest sensor packet</div></div>
-    <div class="card stat"><div class="label">Feed Motor</div><div class="value" id="sysStatus">--</div><div class="subtle">Single stepwise feed</div></div>
-    <div class="card stat"><div class="label">Roll Center</div><div class="value" id="sysStatus">--</div><div class="subtle">Rack and pinion PID</div></div>
+  <div class="card stat"><div class="label">System</div><div class="value" id="sysStatus">--</div><div class="subtle">Pi backend and UI state</div></div>
+  <div class="card stat"><div class="label">Sensors</div><div class="value" id="sensorStatus">--</div><div class="subtle">Latest sensor packet</div></div>
+  <div class="card stat"><div class="label">Feed Motor</div><div class="value" id="feedStatus">--</div><div class="subtle">Single stepwise feed</div></div>
+  <div class="card stat"><div class="label">Roll Center</div><div class="value" id="rollStatus">--</div><div class="subtle">Rack and pinion PID</div></div>
 </div>
 
 <div class="grid cols-2" style="margin-top:18px">
-    <section class="card">
-	<div class="head"><span>Live Summary</span><span class="subtle small" id="summaryMode">Live</span></div>
-	<div class="body" id="summaryBox">Loading...</div>
-    </section>
-    <section class="card">
-	<div class="head">Quick Actions</div>
-	<div class="body">
-	    <div class="grid cols-2">
-		<button class="btn primary" onclick="postAction('/api/control/ping')">Ping Pi</button>
-		<button class="btn ghost" onclick="postAction('/api/control/emergency_stop')">Emergency Stop</button>
-		<button class="btn ghost" onclick="postAction('/api/control/reset_bags')">Reset Bags</button>
-		<button class="btn ghost" onclick="location.href='/diagnositcs'">Open Diagnostics</button>
-	    </div>
-	</div>
-    </section>
+  <section class="card">
+    <div class="head"><span>Live Summary</span><span class="subtle small" id="summaryMode">Live</span></div>
+    <div class="body" id="summaryBox">Loading...</div>
+  </section>
+  <section class="card">
+    <div class="head">Quick Actions</div>
+    <div class="body">
+      <div class="grid cols-2">
+        <button class="btn primary" onclick="postAction('/api/control/ping')">Ping Pi</button>
+        <button class="btn ghost" onclick="postAction('/api/control/emergency_stop')">Emergency Stop</button>
+        <button class="btn ghost" onclick="postAction('/api/control/reset_bags')">Reset Bags</button>
+        <button class="btn ghost" onclick="location.href='/diagnostics'">Open Diagnostics</button>
+      </div>
+    </div>
+  </section>
 </div>
 
 <div class="grid cols-2" style="margin-top:18px">
-    <section class="card">
-	<div class="head">Recent Alerts</div>
-	<div class="body" id="alertsBox"><div class="subtle">Loading...</div></div>
-    </section>
-    <section class="card">
-	<div class="head">Recent Logs</div>
-	<div class="body" id="logsBox"><div class="subtle">Loading...</div></div>
-    </section>
+  <section class="card">
+    <div class="head">Recent Alerts</div>
+    <div class="body" id="alertsBox"><div class="subtle">Loading...</div></div>
+  </section>
+  <section class="card">
+    <div class="head">Recent Logs</div>
+    <div class="body" id="logsBox"><div class="subtle">Loading...</div></div>
+  </section>
 </div>
 {% endblock %}
