@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid cols-2">
+  <section class="card">
+    <div class="head">
+      <span>Machine Map</span>
+      <span class="subtle small">Tap a part to inspect live status</span>
+    </div>
+    <div class="body">
+      <div class="machine-wrap" id="machineWrap">
+        <img id="machineImg" src="{{ url_for('static', filename='img/machine.png') }}" alt="FFS machine map">
+        <div class="hotspot idle" id="overlay-feedingmotor1" data-part="feedingmotor1"></div>
+        <div class="hotspot idle" id="overlay-vertical-seal" data-part="vertical seal"></div>
+        <div class="hotspot idle" id="overlay-horizontal-seal" data-part="horizontal seal"></div>
+        <div class="hotspot idle" id="overlay-filler-motor" data-part="filler motor"></div>
+        <div class="hotspot idle" id="overlay-feedingmotor2" data-part="feeding motor2"></div>
+        <div class="hotspot idle" id="overlay-roll" data-part="roll"></div>
+      </div>
+      <div class="subtle small" style="margin-top:10px">Select a zone on the image or choose any item from the inspector list.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="head">Component Status & Inspector</div>
+    <div class="body">
+      <div class="component-list" id="componentList"></div>
+      <div class="selected-panel">
+        <div class="selected-head">
+          <div>
+            <div class="label">Selected Part</div>
+            <div class="selected-title" id="selectedTitle">--</div>
+          </div>
+          <span id="selectedBadge" class="badge idle"><span class="status-dot"></span>Idle</span>
+        </div>
+        <div class="selected-desc" id="selectedDesc">Select a component on the map.</div>
+        <div class="selected-meta" id="selectedMeta"></div>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
