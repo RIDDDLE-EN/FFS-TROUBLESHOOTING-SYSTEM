@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FFS Troubleshooting System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
+</head>
+<body data-page="{{ active }}">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge">FFS</div>
+        <div>
+          <div>FFS Troubleshooting System</div>
+          <div class="subtle small" id="modeCaption">Web UI</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="/" class="{% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="/controls" class="{% if active=='controls' %}active{% endif %}">Controls</a>
+        <a href="/calibration" class="{% if active=='calibration' %}active{% endif %}">Calibration</a>
+        <a href="/diagnostics" class="{% if active=='diagnostics' %}active{% endif %}">Diagnostics</a>
+        <a href="/monitor" class="{% if active=='monitor' %}active{% endif %}">Monitor</a>
+        <a href="/logs" class="{% if active=='logs' %}active{% endif %}">Logs</a>
+      </nav>
+
+      <div class="toolbar">
+        <button id="ffsToggle" class="btn pill ghost" type="button" title="Toggle FFS demo mode">FFS</button>
+        <span id="modePill" class="mini-pill hidden">FFS</span>
+        <span id="topStatus" class="badge idle"><span class="status-dot"></span>Connecting</span>
+      </div>
+    </header>
+
+    <main class="page">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>
