@@ -2,6 +2,7 @@ services:
   app:
     build:
       context: app
+    image: ${DOCKER_USERNAME}/${CONTAINER_NAME}:${TAG}
     ports:
       - "8000"
 
