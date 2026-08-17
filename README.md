@@ -1,3 +1,21 @@
-# FFS-TROUBLESHOOTING-SYSTEM
-This is a control code for the Form Fill and Seal machine troubleshooting system. 
-It uses esp32 as the sensing node, collecting data from sensors, analyzing them and sending the interpreted data to raspberry pi to control the actuators and update the web app
+# SEMI AUTOMATIC FFS TROUBLESHOOTING SYSTEM
+
+This project is aimed to showcase how you can automatically detect and correct common faults found in Form Fill and Seal (FFS) machines
+
+It uses ESP32 as the sensing node and Raspberry pi zero W as the gateway. 
+
+The web app can run either on the Raspberry pi zero W or just an independent server
+
+##### Flow chart
+
+```mermaid
+flowchart LR
+
+A[sensors] --> B[ESP32]
+
+B --> |SPI| C[Raspberry Pi Zero W]
+D[Actuators] <--> |GPIO| C  
+C --> |RESTApi| E[Server]
+
+```
+
