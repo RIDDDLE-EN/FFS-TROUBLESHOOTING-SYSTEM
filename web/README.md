@@ -5,7 +5,8 @@ This contains the web app that will run on a server. The web is containerized an
 2. Configure own domain name
 
 ```bash
-sudo cp 99-update-hosts
+sudo cp 99-update-hosts /etc/NetworkManager/dispatcher.d/
+sudo chmod +x /etc/NetworkManager/dispatcher.d/99-update-hosts
 sudo systemctl enable --now NetworkManager-dispatcher.service
 nmcli radio wifi off && sleep 3 nmcli radio wifi on
 cat /etc/hosts
