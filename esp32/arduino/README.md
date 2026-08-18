@@ -11,6 +11,7 @@ python3 -m venv <path/to/your/custom/environment>
 source <path/to/your/custom/environment>
 ```
 2. install platformio
+
 ```bash
 wget -O get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py
 python3 get-platformio.py

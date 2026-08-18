@@ -16,7 +16,7 @@ install relevant packages
 
 ```bash
 
-sudo apt install python3 virtualenv git 
+sudo apt install python3-venv git 
 ```
 
 clone this repo
@@ -24,7 +24,7 @@ clone this repo
 ```bash
 
 cd ~
-git clone https://github.com/RIDDDLE-EN/FFS-TROUBLESHOOTING-SYSTEM/tree/main/raspberry_pi
+git clone git@github.com:RIDDDLE-EN/FFS-TROUBLESHOOTING-SYSTEM.git
 cd ~/FFS-TROUBLESHOOTING-SYSTEM/raspberry_pi
 ```
 
