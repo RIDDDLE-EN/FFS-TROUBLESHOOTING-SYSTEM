@@ -61,12 +61,15 @@ jobs:
 
           cd web
           mkdir -p ./app
+
+          RUNNER_IP=$(hostname -I | awk '{print $1}')
+
           cat << EOF > ./app/.env
           PORT=8000
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
           CONTAINER_NAME=ffs-docker-app
           TAG=0.0.2
-          PI_IP=172.17.0.1
+          PI_IP=$RUNNER_IP
           EOF
 
           docker compose --env-file ./app/.env up -d --build
@@ -121,12 +124,15 @@ jobs:
           echo "Building Docker image version: $VERSION"
 
           mkdir -p ./app
+
+          RUNNER_IP=$(hostname -I | awk '{print $1}')
+
           cat << EOF > ./app/.env
           PORT=8000
           DOCKER_USERNAME=$USERNAME
           CONTAINER=ffs-docker-app
           TAG=$VERSION
-          PI_IP=172.17.0.1
+          PI_IP=$RUNNER_IP
           EOF
 
           docker compose --env-file ./app/.env build app
