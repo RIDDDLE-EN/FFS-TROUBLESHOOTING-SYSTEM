@@ -1,0 +1,14 @@
+[Unit]
+Description=FFS Machine Backend (Gunicorn)
+After=network.target
+
+[Service]
+User=<pi username>
+Group=www-data
+WorkingDirectory=~/FFS-TROUBLESHOOTING-SYSTEM/raspberryp_pi/
+Environment="PATH=~/.venv/bin"
+ExecStart=~/.venv/bin/gunicorn --workers 1 --threads 4 --bind 0.0.0.0:5001 main:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
