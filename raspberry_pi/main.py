@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import signal
 import sys
+import threading
 import time
 
 try:
@@ -19,7 +20,7 @@ import config as cfg
 from alerts import AlertEngine
 from database import Database
 from motors import PackagingCycle, motors_cleanup, motors_init
-from pi_backend import _fire_alert, start_backend
+from pi_backend import app, S, _fire_alert, telemetry_loop
 from spi_comms import SpiComms
 
 logging.basicConfig(
@@ -61,40 +62,33 @@ signal.signal(signal.SIGINT, _shutdown)
 signal.signal(signal.SIGTERM, _shutdown)
 
 
-def main():
-    global cycle, db
+log.info("=" * 60)
+log.info("Starting FFS Raspberry Pi backend")
+log.info("=" * 60)
 
-    log.info("=" * 60)
-    log.info("Starting FFS Raspberry Pi backend")
-    log.info("=" * 60)
+db = Database(cfg.DB_PATH)
+alerts = AlertEngine(fire_cb=_fire_alert)
 
-    db = Database(cfg.DB_PATH)
-    alerts = AlertEngine(fire_cb=_fire_alert)
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
 
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setwarnings(False)
+spi.open()
 
-    spi.open()
+log.info("Pinging ESP32...")
+for _ in range(5):
+    if spi.ping():
+        log.info("ESP32 online")
+        break
+    time.sleep(0.5)
+else:
+    log.warning("ESP32 ping not confirmed; continuing in compatibility mode")
 
-    log.info("Pinging ESP32...")
-    for _ in range(5):
-        if spi.ping():
-            log.info("ESP32 online")
-            break
-        time.sleep(0.5)
-    else:
-        log.warning("ESP32 ping not confirmed; continuing in compatibility mode")
+motors_init()
+cycle = PackagingCycle(spi)
+cycle.start()
 
-    motors_init()
-    cycle = PackagingCycle(spi)
-    cycle.start()
+if S.db:
+    _emit_log = lambda tag, msg, lvl="INFO": (S.db.add_log(tag, msg, lvl), log.info("[%s] %s",tag.upper(), msg))
+    _emit_log("SYSTEM", "Backend initialized via Gunicorn", "INFO")
 
-    try:
-        start_backend(spi_instance=spi, cycle_instance=cycle, db_instance=db, alerts_instance=alerts)
-    except Exception as exc:
-        log.exception("Fatal error: %s", exc)
-        _shutdown(None, None)
-
-
-if __name__ == "__main__":
-    main()
+threading.Thread(target=telemetry_loop, daemon=True, name="TelemetryLoop").start()
