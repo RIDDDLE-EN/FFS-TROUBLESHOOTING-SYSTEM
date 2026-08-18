@@ -11,8 +11,8 @@ from sensor_data import InterpretedSensorData
 log = logging.getLogger(__name__)
 
 try:
-    import spidev  
-except Exception: 
+    import spidev  # type: ignore
+except Exception:  # pragma: no cover
     class _SpiStub:
         def open(self, bus, device): pass
         def close(self): pass
@@ -27,11 +27,11 @@ except Exception:
     class _SpidevStub:
         SpiDev = _SpiStub
 
-    spidev = _SpidevStub()  
+    spidev = _SpidevStub()  # type: ignore
 
 try:
-    import RPi.GPIO as GPIO
-except Exception:  
+    import RPi.GPIO as GPIO  # type: ignore
+except Exception:  # pragma: no cover
     class _GPIOStub:
         IN = OUT = BCM = HIGH = LOW = None
         def setmode(self, *a, **k): pass
@@ -40,7 +40,7 @@ except Exception:
         def input(self, pin): return 0
         def cleanup(self): pass
 
-    GPIO = _GPIOStub()  
+    GPIO = _GPIOStub()  # type: ignore
 
 
 def _crc8(data: bytes) -> int:
@@ -99,6 +99,7 @@ def _parse_response(raw: list[int], permissive: bool = True):
         return None, None
 
     if buf[0] != cfg.SPI_START_FROM_ESP:
+        # Some SPI slaves echo a dummy byte first. Try a one-byte shift before giving up.
         if len(buf) > 1 and buf[1] == cfg.SPI_START_FROM_ESP and _looks_like_frame(buf[1:] + b"\x00"):
             buf = buf[1:] + b"\x00"
         else:
@@ -110,6 +111,9 @@ def _parse_response(raw: list[int], permissive: bool = True):
         return None, None
 
     if not checksum_ok and permissive and not _legacy_checksum_notice_emitted:
+        # The ESP32 firmware may be using a different checksum variant or a
+        # legacy frame format. Accept the frame, but only log once so the
+        # backend output stays readable during normal operation.
         log.warning("SPI checksum mismatch; accepting compatible legacy frame")
         _legacy_checksum_notice_emitted = True
 
@@ -136,7 +140,7 @@ class SpiComms:
         self._spi.open(cfg.SPI_BUS, cfg.SPI_DEVICE)
         self._spi.max_speed_hz = cfg.SPI_SPEED_HZ
         self._spi.mode = cfg.SPI_MODE
-        
+        # Optional attributes; ignored by stubs if unsupported.
         try:
             self._spi.bits_per_word = 8
         except Exception:

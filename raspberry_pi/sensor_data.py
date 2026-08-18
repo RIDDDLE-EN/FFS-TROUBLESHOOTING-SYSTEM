@@ -1,7 +1,18 @@
+"""Decode the ESP32 sensor payload into Python objects.
+
+The ESP32 can keep its existing payload shape. The Pi only uses the values
+that matter for the simplified machine:
+- feed motor telemetry
+- DHT environment values
+- roll centering offset
+- vibration
+- bag counting
+"""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
 import struct
+from dataclasses import dataclass
 
 _FMT = "<I ff BB ff B ff BB ff BB I B ff ff BB ffff BB i"
 _SIZE = struct.calcsize(_FMT)
@@ -26,6 +37,7 @@ ENV_STATUS_NAMES = {
     ENV_SENSOR_FAULT: "Sensor Fault",
 }
 
+
 @dataclass
 class InterpretedSensorData:
     timestamp_ms: int = 0
@@ -44,32 +56,32 @@ class InterpretedSensorData:
     motor2_running: bool = False
 
     weight_grams: float = 0.0
-    loadcell_ok: bool = False
     weight_stable: bool = False
+    loadcell_ok: bool = False
 
     roll_center_offset_cm: float = 0.0
-    roll_centered: bool = True
+    roll_centered: bool = False
     ultrasonic_ok: bool = False
-
-    seal_temp: float = 0.0
-    tc_connected: bool = False
-    thermocouple_ok: bool = False
 
     bags_counted: int = 0
     bag_detected: bool = False
     bag_length_cm: float = 0.0
 
-    vibration_rms_g: float = 0.0
+    seal_temp: float = 0.0
+    tc_connected: bool = False
+    thermocouple_ok: bool = False
+
     vibration_peak_g: float = 0.0
-    vibration_freq_hz: float = 0.0
+    vibration_rms_g: float = 0.0
     vibration_freq_mag: float = 0.0
+    vibration_freq_hz: float = 0.0
     vibration_knife_confirmed: bool = False
 
     calibration_active: bool = False
     cal_raw_weight: int = 0
 
     @classmethod
-    def from_bytes(cls, payload: bytes) -> "InterpretedSensorData":
+    def from_bytes(cls, data: bytes) -> "InterpretedSensorData":
         if len(data) < _SIZE:
             return cls()
 
@@ -95,7 +107,7 @@ class InterpretedSensorData:
             obj.calibration_active,
             obj.cal_raw_weight,
         ) = fields
-        
+
         obj.env_sensor_ok = bool(obj.env_sensor_ok)
         obj.motor1_running = bool(obj.motor1_running)
         obj.motor2_running = bool(obj.motor2_running)
@@ -120,7 +132,7 @@ class InterpretedSensorData:
             "ambient_hum": self.ambient_hum,
             "env_sensor_ok": self.env_sensor_ok,
             "env_status": self.env_status,
-            "env_status_name": self.env_status_name,
+            "env_status_name": self.env_status_name(),
             "current1": self.current1,
             "rpm1": self.rpm1,
             "motor1_running": self.motor1_running,

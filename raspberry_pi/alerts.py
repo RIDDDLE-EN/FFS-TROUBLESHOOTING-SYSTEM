@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import time
 from dataclasses import dataclass, field
 from typing import Callable, Any
 
 import config as cfg
+
 
 @dataclass
 class AlertState:
@@ -17,6 +19,7 @@ class AlertState:
             self.last_fire[key] = now
             return True
         return False
+
 
 class AlertEngine:
     def __init__(self, fire_cb: Callable[[str, str, str, str], Any] | None = None):
@@ -41,15 +44,15 @@ class AlertEngine:
         rpm = float(motor.get("rpm", 0.0))
 
         if not env_ok:
-            self._fire("env_cirt", "CRITICAL", "ENV", "DHT sensor fault detected.")
+            self._fire("env_crit", "CRITICAL", "ENV", "DHT sensor fault detected.")
             return
 
-        if temp >= cfg.TEMP_FAN_OK_C or hum >= cfg.HUM_FAN_ON_PCT:
+        if temp >= cfg.TEMP_FAN_ON_C or hum >= cfg.HUM_FAN_ON_PCT:
             self._fire(
                 "env_warn",
                 "WARNING",
                 "ENV",
-                F"Environment out of range: {temp:.1f}C / {hum:.1f}%",
+                f"Environment out of range: {temp:.1f}°C / {hum:.1f}%",
             )
 
         if diff_cm >= cfg.ROLL_MISALIGN_CM or not centered:
@@ -57,11 +60,11 @@ class AlertEngine:
                 "roll_off",
                 "WARNING",
                 "ROLL",
-                F"Roll is off-center by {diff_cm:.2f} cm.",
+                f"Roll is off-center by {diff_cm:.2f} cm.",
             )
 
         if current >= cfg.MOTOR_JAM_CURRENT_A and rpm <= 0.1:
-            self._fire("m1_jam", "CRITICAL", "MOTOR", "Feeding motor appears Jammed.")
+            self._fire("m1_jam", "CRITICAL", "MOTOR", "Feeding motor appears jammed.")
 
         if peak >= cfg.VIB_CRIT_G:
             self._fire("vib_crit", "CRITICAL", "VIBRATION", f"High vibration detected: {peak:.2f} g.")

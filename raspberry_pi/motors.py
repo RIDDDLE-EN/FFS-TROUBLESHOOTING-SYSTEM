@@ -8,8 +8,8 @@ from dataclasses import dataclass
 import config as cfg
 
 try:
-    import RPi.GPIO as GPIO  
-except Exception:  
+    import RPi.GPIO as GPIO  # type: ignore
+except Exception:  # pragma: no cover - allows import on non-Pi systems
     class _PWM:
         def __init__(self, pin, freq):
             self.pin = pin
@@ -37,7 +37,7 @@ except Exception:
         def cleanup(self, *a, **k): pass
         def PWM(self, pin, freq): return _PWM(pin, freq)
 
-    GPIO = _GPIOStub()  
+    GPIO = _GPIOStub()  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -188,10 +188,13 @@ def stepper_move_mm(delta_mm: float):
         _stepper_pos_mm = target
         log.info("Stepper moved %.2f mm -> %.2f mm", actual_delta, _stepper_pos_mm)
 
-def stepper_get_position() -> float:
+
+def stepper_get_position_mm() -> float:
     return _stepper_pos_mm
 
+
 def auto_center_roll(offset_cm: float, centered: bool = False, ultrasonic_ok: bool = True):
+    """PID correction for roll centering."""
     global _pid_integral, _pid_prev_error, _pid_last_ts, _pid_last_move_ts
 
     if not ultrasonic_ok:
@@ -203,7 +206,7 @@ def auto_center_roll(offset_cm: float, centered: bool = False, ultrasonic_ok: bo
         _pid_prev_error = 0.0
         _pid_integral = 0.0
 
-    dt = max(1e-3, now - _pid-last_ts)
+    dt = max(1e-3, now - _pid_last_ts)
     _pid_last_ts = now
 
     error_cm = float(offset_cm)
@@ -212,12 +215,12 @@ def auto_center_roll(offset_cm: float, centered: bool = False, ultrasonic_ok: bo
         _pid_prev_error = error_cm
         return 0.0
 
-    if abs(error_cm) <= cfg.ROLL_TORANCE_CM:
+    if abs(error_cm) <= cfg.ROLL_TOLERANCE_CM:
         return 0.0
 
     _pid_integral += error_cm * dt
     _pid_integral = max(-10.0, min(10.0, _pid_integral))
-    derivative = (error_cm - pid_prev_error) / dt
+    derivative = (error_cm - _pid_prev_error) / dt
     _pid_prev_error = error_cm
 
     mm = (
@@ -233,25 +236,33 @@ def auto_center_roll(offset_cm: float, centered: bool = False, ultrasonic_ok: bo
 
     return mm
 
+
 def retract_all():
     feed_off()
     fan_off()
     GPIO.output(cfg.STEPPER_EN, GPIO.HIGH)
 
+
 def _feed_on():
     feed_on()
+
 
 def _feed_off():
     feed_off()
 
+
 def set_feed_duty_cycle(duty: int):
-    set_feed_ducy(duty)
+    set_feed_duty(duty)
+
 
 def stepper_move(delta_mm: float):
     stepper_move_mm(delta_mm)
 
+
 @dataclass
 class PackagingCycle:
+    """Compatibility cycle wrapper for the simplified machine."""
+
     spi: object | None = None
 
     def __post_init__(self):

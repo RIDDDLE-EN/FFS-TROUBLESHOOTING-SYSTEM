@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-import json, sqlite3, threading,time
+import json
+import sqlite3
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -19,34 +22,34 @@ class Database:
         return conn
 
     def _init_db(self):
-        with self._connect as conn:
+        with self._connect() as conn:
             conn.executescript("""
-            PRAGMA journal_mode=WAL;
+                PRAGMA journal_mode=WAL;
 
-            CREATE TABLE IF NOT EXISTS sensor_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ts INTEGER NOT NULL,
-                json TEXT NOT NULL
-            );
+                CREATE TABLE IF NOT EXISTS sensor_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts INTEGER NOT NULL,
+                    json TEXT NOT NULL
+                );
 
-            CREATE TABLE IF NOT EXISTS alerts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ts INTEGER NOT NULL,
-                severity TEXT NOT NULL,
-                category TEXT NOT NULL,
-                message TEXT NOT NULL,
-                resolved INTEGER NOT NULL DEFAULT 0,
-                resolved_ts INTEGER
-            );
+                CREATE TABLE IF NOT EXISTS alerts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts INTEGER NOT NULL,
+                    severity TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    resolved INTEGER NOT NULL DEFAULT 0,
+                    resolved_ts INTEGER
+                );
 
-            CREATE TABLE IF NOT EXISTS logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ts INTEGER NOT NULL,
-                tag TEXT NOT NULL,
-                level TEXT NOT NULL,
-                message TEXT NOT NULL
-            );
-        """)
+                CREATE TABLE IF NOT EXISTS logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts INTEGER NOT NULL,
+                    tag TEXT NOT NULL,
+                    level TEXT NOT NULL,
+                    message TEXT NOT NULL
+                );
+            """)
 
     def write_sensor(self, payload: dict[str, Any]) -> None:
         ts = int(time.time() * 1000)
@@ -74,15 +77,15 @@ class Database:
             sql += " WHERE resolved = 0"
         sql += " ORDER BY ts DESC LIMIT ?"
         params.append(limit)
-        with self._connect as conn:
+        with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
         return [dict(r) for r in rows]
 
-    def resolve_alert(self, alert_id: int) -> boll:
+    def resolve_alert(self, alert_id: int) -> bool:
         ts = int(time.time() * 1000)
         with self._lock, self._connect() as conn:
             cur = conn.execute(
-                "UPDATE alerts SET resolved = 1, resolved_ts = ? where id = ?",
+                "UPDATE alerts SET resolved = 1, resolved_ts = ? WHERE id = ?",
                 (ts, alert_id),
             )
             conn.commit()
@@ -140,7 +143,5 @@ class Database:
         with self._lock, self._connect() as conn:
             conn.execute("DELETE FROM sensor_logs WHERE ts < ?", (cutoff,))
             conn.execute("DELETE FROM logs WHERE ts < ?", (cutoff,))
-            conn.execute("DELETE FROM alerts WHERE resolved = 1 and resolved_ts IS NOT NULL AND resolved_ts < ?",
-                (cutoff,)
-            )
+            conn.execute("DELETE FROM alerts WHERE resolved = 1 AND resolved_ts IS NOT NULL AND resolved_ts < ?", (cutoff,))
             conn.commit()

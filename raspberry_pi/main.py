@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-import logging, signal, sys, time
+import logging
+import signal
+import sys
+import time
 
 try:
-    import RPi.GPIO as GPIO
-except Exception:
+    import RPi.GPIO as GPIO  # type: ignore
+except Exception:  # pragma: no cover
     class _GPIOStub:
         BCM = OUT = IN = HIGH = LOW = None
         def setmode(self, *a, **k): pass
         def setwarnings(self, *a, **k): pass
         def cleanup(self): pass
-    GPIO = _GPIOStub()
+    GPIO = _GPIOStub()  # type: ignore
 
 import config as cfg
 from alerts import AlertEngine
@@ -31,9 +34,10 @@ spi = SpiComms()
 cycle = None
 db = None
 
+
 def _shutdown(signum, frame):
     log.info("Shutdown signal received")
-    try: 
+    try:
         if cycle:
             cycle.stop()
     except Exception:
@@ -52,8 +56,10 @@ def _shutdown(signum, frame):
         pass
     sys.exit(0)
 
+
 signal.signal(signal.SIGINT, _shutdown)
 signal.signal(signal.SIGTERM, _shutdown)
+
 
 def main():
     global cycle, db
@@ -62,7 +68,7 @@ def main():
     log.info("Starting FFS Raspberry Pi backend")
     log.info("=" * 60)
 
-    db = Database(cfb.DB_PATH)
+    db = Database(cfg.DB_PATH)
     alerts = AlertEngine(fire_cb=_fire_alert)
 
     GPIO.setmode(GPIO.BCM)
@@ -88,6 +94,7 @@ def main():
     except Exception as exc:
         log.exception("Fatal error: %s", exc)
         _shutdown(None, None)
+
 
 if __name__ == "__main__":
     main()
