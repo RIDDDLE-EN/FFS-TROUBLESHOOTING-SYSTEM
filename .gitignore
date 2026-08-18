@@ -1,2 +1,6 @@
 raspberry_pi/__pycache__
 raspberry_pi/ffts.db
+esp32/arduino/.pio
+web/app/__pycache__
+web/app/.env
+esp32/espidf
