@@ -1,6 +1,9 @@
-flask>=3.0.0
-flask-cors>=4.0.0
+Flask>=3.0.0
+Flask-Cors>=4.0.0
 flask-socketio>=5.3.6
 requests>=2.31.0
 spidev>=3.6
+socketio
+gunicorn==21.2.0
+flake8==6.1.0
 RPi.GPIO>=0.7.1
