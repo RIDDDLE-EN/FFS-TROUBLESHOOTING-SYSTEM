@@ -5,6 +5,8 @@ services:
     image: ${DOCKER_USERNAME}/${CONTAINER_NAME}:${TAG}
     ports:
       - "8000"
+    environment:
+      - PI_BACKEND_URL=http://${PI_IP}:5001
 
   nginx:
     image: nginx:latest

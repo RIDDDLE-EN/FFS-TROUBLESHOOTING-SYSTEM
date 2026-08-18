@@ -1,0 +1,25 @@
+#!/bin/bash
+
+INTERFACE=$1
+ACTION=$2
+DOMAIN="ffstroubleshootingsystem.com www.ffstroubleshootingsystem.com"
+HOSTS="/etc/hosts"
+PI="PI_IP="
+ENV="~/FFS-TROUBLESHOOTING-SYSTEM/web/app/.env"
+
+
+if [ "$INTERFACE" = "wlo1" ] && { [ "$ACTION" = "up" ] || [ "$ACTION" = "dhcp4-change" ]; }; then
+
+    IP=$(ip -4 -o addr show wlo1 | awk '{print $4}' | cut -d / -f1)
+
+    
+    if [ -n "$IP"]; then
+
+        sed -i "/[[:space:]]$DOMAIN\b/d" "$HOSTS"
+        sed -i "/^${PI}/d" "$ENV"
+
+        echo "$IP $DOMAIN" >> $HOSTS
+        echo "${PI}${IP}" >> $ENV
+
+    fi
+fi
