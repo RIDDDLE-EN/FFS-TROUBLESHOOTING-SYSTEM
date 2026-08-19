@@ -55,7 +55,7 @@ jobs:
             app.logger.info("PING_RECEIVED_FROM_WEB_APP")
             return jsonify({"ok": True}), 200
           if __name__ == '__main__':
-            app.run(host='0.0.0.0', port=50001)
+            app.run(host='0.0.0.0', port=5001)
           EOF
           python mock_pi.py &
 
