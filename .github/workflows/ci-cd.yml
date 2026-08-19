@@ -46,7 +46,7 @@ jobs:
       - name: Test Docker Compose Stack (Nginx -> App -> Pi)
         run: |
           cat << 'EOF' > mock_pi.py
-          from flask import Falsk, jsonify
+          from flask import Flask, jsonify
           import logging
           app = Flask(__name__)
           logging.basicConfig(filename='pi_received.log', level=logging.INFO)
@@ -74,12 +74,12 @@ jobs:
 
           docker compose --env-file ./app/.env up -d --build
 
-          echo "Waiting for Ngiinx to become available on port 80..."
-          timeout 30s bash -c 'until curl -s http://127.0.0.1:80 > /dev/null; do sleep 1; done'
+          echo "Waiting for Nginx to become available on port 80..."
+          timeout 30s bash -c 'until curl -s http://127.0.0.1:80 > /dev/null; do sleep 5; done'
           echo "Web app is up!"
 
           curl -X POST http://127.0.0.1:80/api/control/ping
-          sleep 1
+          sleep 5
 
           cd ..
           if grep -q "PING_RECEIVED_FROM_WEB_APP" pi_received.log; then
