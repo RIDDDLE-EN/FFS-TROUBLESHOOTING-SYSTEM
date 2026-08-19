@@ -97,6 +97,12 @@ jobs:
     needs: test-hardware-and-comms
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
