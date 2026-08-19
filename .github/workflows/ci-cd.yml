@@ -100,10 +100,17 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Semantic Release (Tag Entire Repo)
         id: semantic
         uses: cycjimmy/semantic-release-action@v3
+        with:
+          branches: |
+            [
+              'main'
+            ]
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -114,7 +121,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and Push Docker Image via Compose
-        if: steps.semantic.outpts.new_release_published == 'true'
+        if: steps.semantic.outputs.new_release_published == 'true'
         working-directory: ./web
         run: |
           VERSION=${{ steps.semantic.outputs.new_release_version }}
@@ -130,7 +137,7 @@ jobs:
           cat << EOF > ./app/.env
           PORT=8000
           DOCKER_USERNAME=$USERNAME
-          CONTAINER=ffs-docker-app
+          CONTAINER_NAME=ffs-docker-app
           TAG=$VERSION
           PI_IP=$RUNNER_IP
           EOF
@@ -139,4 +146,4 @@ jobs:
 
           docker push $IMAGE_NAME:$VERSION
           docker tag $IMAGE_NAME:$VERSION $IMAGE_NAME:latest
-          docker push $IMAGE_NAME: latest
+          docker push $IMAGE_NAME:latest
