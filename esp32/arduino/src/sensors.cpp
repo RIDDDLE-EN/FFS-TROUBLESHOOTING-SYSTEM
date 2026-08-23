@@ -30,7 +30,7 @@ static EncoderState enc2 = {0, 0, 0.0f, true};
 
 void IRAM_ATTR encoder1_ISR() {
 	enc1.counter++;
-	enc1.forward = (digitalRead(ENCODER2_DT) == HIGH);
+	enc1.forward = (digitalRead(ENCODER1_DT) == HIGH);
 }
 
 void IRAM_ATTR encoder2_ISR() {
@@ -77,7 +77,7 @@ void setLoadCellFactor(float factor) {
 	if (xSemaphoreTake(mutexCalibration, pdMS_TO_TICKS(100)) != pdTRUE) return;
 	loadCellFactor = factor;
 	if (prefs.begin("cal", false)) {
-		prefs.putFloat("lc-factor", factor);
+		prefs.putFloat("lc_factor", factor);
 		prefs.end();
 	}
 	scale.set_scale(factor);
@@ -98,7 +98,7 @@ void setThermoOffset(float offset) {
 	if (xSemaphoreTake(mutexCalibration, pdMS_TO_TICKS(100)) != pdTRUE) return;
 	thermoOffset = offset;
 	if (prefs.begin("cal", false)) {
-		prefs.putFloat("offset", thermoOffset);
+		prefs.putFloat("tc_offset", thermoOffset);
 		prefs.end();
 	}
 	xSemaphoreGive(mutexCalibration);
@@ -145,9 +145,9 @@ void sensorsInit(){
 	LOG("[SENSORS] Initializing");
 
 	mutexCalibration 	= xSemaphoreCreateMutex();
-	queueRawToProcessing	= xQueueCreate(2, sizeof(RawSensorData));
-	queueVibrationToProcessing = xQueueCreate(2, sizeof(VibrationData));
-	queueProcessedToSPI	= xQueueCreate(2, sizeof(InterpretedSensorData));
+	queueRawToProcessing	= xQueueCreate(1, sizeof(RawSensorData));
+	queueVibrationToProcessing = xQueueCreate(1, sizeof(VibrationData));
+	queueProcessedToSPI	= xQueueCreate(1, sizeof(InterpretedSensorData));
 
 	pinMode(LASER_PIN, OUTPUT);
 	digitalWrite(LASER_PIN, HIGH);
@@ -221,7 +221,7 @@ void sensorReadTask(void *parameter) {
 		interrupts();
 
 		// MOTOR2
-		data.current2 = analogRead(ACS712_1);
+		data.current2 = analogRead(ACS712_2);
 		noInterrupts();
 		data.encoder2_counter 	= enc2.counter;
 		data.encoder2_last_us	= enc2.lastSample;
@@ -381,6 +381,7 @@ void dataProcessingTask(void *parameter) {
 		filteredCurrent2 = (0.1f * rawData.current2) + (0.9f * filteredCurrent1);
 		float v2		= (filteredCurrent2 * VREF) / ADC_RESOLUTION;
 		output.current2 	= (v2 - ZERO_CURRENT_V) / SENSITIVITY;
+		output.rpm2		= filteredRPM(enc2);
 		output.motor2_running 	= (fabsf(output.rpm2) > MOTOR_MIN_RPM);
 
 		float lcf = getLoadCellFactor();

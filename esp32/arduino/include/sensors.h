@@ -135,7 +135,7 @@ void dataProcessingTask(void *paramter);
 
 // Calibration helpers
 void  	setLoadCellFactor(float factor);
-float 	getLocadCellFactor();
+float 	getLoadCellFactor();
 void  	setThermoOffset(float offset);
 float 	getThermoOffset();
 void  	tareLoadCell();
