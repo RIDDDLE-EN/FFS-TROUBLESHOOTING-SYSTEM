@@ -87,6 +87,11 @@ motors_init()
 cycle = PackagingCycle(spi)
 cycle.start()
 
+S.spi = spi
+S.cycle = cycle
+S.db = db
+S.alerts = alerts
+
 if S.db:
     _emit_log = lambda tag, msg, lvl="INFO": (S.db.add_log(tag, msg, lvl), log.info("[%s] %s",tag.upper(), msg))
     _emit_log("SYSTEM", "Backend initialized via Gunicorn", "INFO")
