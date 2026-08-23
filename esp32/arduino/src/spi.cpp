@@ -17,7 +17,7 @@ static uint8_t calculateCRC8(const uint8_t *data, size_t len) {
 	uint8_t crc = 0x00;
 	for (size_t i = 0; i < len; i++) {
 		crc ^= data[i]; 
-		for (int b = 0; b < 0 ; b++) {
+		for (int b = 0; b < 8 ; b++) {
 			crc = (crc & 0x80) ? (crc << 1) ^ 0x07 : (crc << 1);
 		}
 	}
@@ -47,8 +47,8 @@ void spiCommsInit() {
 	gpio_set_level((gpio_num_t)SPI_DATA_READY, 0);
 
 	spi_bus_config_t busCfg = {};
-	busCfg.mosi_io_num	= MOSI;
-	busCfg.miso_io_num	= MISO;
+	busCfg.mosi_io_num	= SPI_MOSI;
+	busCfg.miso_io_num	= SPI_MISO;
 	busCfg.sclk_io_num	= SPI_CLK;
 	busCfg.quadwp_io_num 	= -1;
 	busCfg.quadhd_io_num	= -1;
@@ -66,20 +66,23 @@ void spiCommTask(void *parameter) {
 	InterpretedSensorData localDataFrame = {};
 	char logBuffer[LOG_MAX_MSG_LEN] = {};
 	bool outboundDataPending = false;
+	bool responsePending = false;
 
 	while (true) {
-		bool hasLog = logDequeue(logBuffer);
-		bool hasSensor = (xQueuePeek(queueProcessedToSPI, &localDataFrame, 0) == pdTRUE);
+		if (!responsePending) {
+			bool hasLog = logDequeue(logBuffer);
+			bool hasSensor = (xQueuePeek(queueProcessedToSPI, &localDataFrame, 0) == pdTRUE);
 
-		if (hasLog) {
-			sendResponseFrame(MSG_LOG, logBuffer, (uint8_t)strnlen(logBuffer, LOG_MAX_MSG_LEN -1) + 1);
-		} else if (hasSensor && outboundDataPending) {
-			xQueueReceive(queueProcessedToSPI, &localDataFrame, 0);
-			sendResponseFrame(MSG_SENSOR_DATA, &localDataFrame, sizeof(InterpretedSensorData));
-			outboundDataPending = false;
-			gpio_set_level((gpio_num_t)SPI_DATA_READY, 0);
-		} else {
-			sendResponseFrame(MSG_IDLE, nullptr, 0);
+			if (hasLog) {
+				sendResponseFrame(MSG_LOG, logBuffer, (uint8_t)strnlen(logBuffer, LOG_MAX_MSG_LEN -1) + 1);
+			} else if (hasSensor && outboundDataPending) {
+				xQueueReceive(queueProcessedToSPI, &localDataFrame, 0);
+				sendResponseFrame(MSG_SENSOR_DATA, &localDataFrame, sizeof(InterpretedSensorData));
+				outboundDataPending = false;
+				gpio_set_level((gpio_num_t)SPI_DATA_READY, 0);
+			} else {
+				sendResponseFrame(MSG_IDLE, nullptr, 0);
+			}
 		}
 
 		spi_slave_transaction_t transaction = {};
@@ -91,10 +94,13 @@ void spiCommTask(void *parameter) {
 		spi_slave_transaction_t *completedTrans = nullptr;
 		spi_slave_get_trans_result(SPI3_HOST, &completedTrans, portMAX_DELAY);
 
+		responsePending = false;
+
 		if (isFrameValid(s_rxBuf)) {
 			uint8_t masterCmd	= s_rxBuf[1];
 			uint8_t len		= s_rxBuf[2];
 			const uint8_t *payloadPtr = &s_rxBuf[3];
+			responsePending = true;
 
 			switch (masterCmd) {
 				case CMD_PING:

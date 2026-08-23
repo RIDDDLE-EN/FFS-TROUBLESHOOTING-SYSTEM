@@ -26,8 +26,8 @@
 // LASER
 #define LASER_PIN	13
 // LoadCell
-#define HX_DT		21
-#define HX_SCK		22
+#define HX_DT		39
+#define HX_SCK		2
 
 // Thermocouple
 #define TC_PLUS		14
