@@ -52,7 +52,9 @@ int32_t LoadCellModule::readRawAverage(uint8_t samples) {
 		}
 		vTaskDelay(pdMS_TO_TICKS(100));
 	}
-	return count > 0 ? (int32_t)(sum / count) : 0;
+	int32_t result = count > 0 ? (int32_t)(sum / count) : 0;
+	LOG("[CAL] Raw weight average (%d samples): %ld", cound, (long)result);
+	return result;
 }
 
 
