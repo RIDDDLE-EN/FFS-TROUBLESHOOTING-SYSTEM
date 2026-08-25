@@ -12,7 +12,7 @@ struct JawDiagnostics {
 class VibrationModule {
 	public:
 		void init(MPU6050 &mpuInstance);
-		vool processImpact(int16_t ax, int16_t ay, int16_t az, JawDiagnostics &outResult);
+		bool processImpact(int16_t ax, int16_t ay, int16_t az, JawDiagnostics &output);
 
 	private:
 		MPU6050 *mpu = nullptr;

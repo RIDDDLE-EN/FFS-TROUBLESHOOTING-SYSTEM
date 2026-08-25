@@ -10,5 +10,5 @@ struct RollData {
 class RollModule {
 	public:
 		void init(uint8_t trig1, uint8_t echo1, uint8_t trig2, uint8_t echo2);
-		void calculateOffset();
-}
+		void calculateOffset(RollData &output);
+};

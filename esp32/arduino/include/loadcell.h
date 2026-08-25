@@ -1,20 +1,26 @@
 #pragma once
 #include <stdint.h>
+#include <HX711.h>
+#include "calibration.h"
 #include "config.h"
+
+struct LoadCellData {
+	float weight_grams;
+	bool  loadcell_ok;
+	bool  weight_stable;
+};
 
 class LoadCellModule {
 	public:
-		void init();
+		void init(HX711 &scaleInstance, CalibrationModule &calibration);
 		void setFactor(float factor);
-		float getFactor() const;
-		void tare(uint8_t times=20);
-		int32_t readRawAverage(uint8_t samples);
-		float updateAndGetFiltered();
+		void updateAndGetFiltered(LoadCellData &output);
 	
 	private:
-		uint8_t dtPin = HX_DT, sckPin = HX_SCK;
+		HX711 *scale = nullptr;
 		float loadCellFactor = 0.0f;
 		float emaWeight = 0.0f;
+
 		static const uint8_t MEDIAN_WINDOW = 5;
 		int32_t rawHistory[MEDIAN_WINDOW] = {0};
 		uint8_t historyIdx = 0;

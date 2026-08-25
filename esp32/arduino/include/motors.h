@@ -16,7 +16,7 @@ class MotorModule {
 	public:
 		void init();
 		void calibrateCurrentOffsets();
-		MotorData update();
+		MotorData update(MotorData &data);
 
 		static void IRAM_ATTR encoder1_ISR();
 		static void IRAM_ATTR encoder2_ISR();

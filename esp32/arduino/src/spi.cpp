@@ -2,6 +2,9 @@
 #include "config.h"
 #include "logger.h"
 #include "sensors.h"
+#include "calibration.h"
+#include "bag.h"
+#include "loadcell.h"
 
 #include <string.h>
 #include <Arduino.h>
@@ -12,6 +15,12 @@
 static WORD_ALIGNED_ATTR uint8_t s_txBuf[SPI_PACKET_SIZE];
 static WORD_ALIGNED_ATTR uint8_t s_rxBuf[SPI_PACKET_SIZE];
 static bool s_calibrationActive = false;
+
+static BagModule		*s_bag = nullptr;
+static CalibrationModule 	*s_calibration = nullptr;
+static LoadCellModule		*s_loadcell = nullptr;
+
+extern BagData g_bagData;
 
 static uint8_t calculateCRC8(const uint8_t *data, size_t len) {
 	uint8_t crc = 0x00;
@@ -123,11 +132,11 @@ void spiCommTask(void *parameter) {
 				
 				case CMD_CAL_START:
 					s_calibrationActive = true;
-					setLoadCellFactor(0.0f);
-					tareLoadCell();
+					calibration->setLoadCellFactor(0.0f);
+					calibration->tareLoadCell();
 					vTaskDelay(pdMS_TO_TICKS(100));
 					{
-						int32_t rawWeightAvg = readRawWeightAverage(10);
+						int32_t rawWeightAvg = calibration.readRawWeightAverage(10);
 						sendResponseFrame(MSG_CAL_RAW_WEIGHT, &rawWeightAvg, sizeof(rawWeightAvg));
 					}
 					break;
@@ -136,7 +145,8 @@ void spiCommTask(void *parameter) {
 						float scaleFactor = 0.0f;
 						memcpy(&scaleFactor, payloadPtr, sizeof(float));
 						if (scaleFactor != 0.0f) {
-							setLoadCellFactor(scaleFactor);
+							loadcell->setFactor(scaleFactor);
+							calibration->setFactor(scaleFactor);
 							s_calibrationActive = false;
 							sendResponseFrame(MSG_ACK, nullptr, 0);
 						} else {
@@ -147,12 +157,12 @@ void spiCommTask(void *parameter) {
 					}
 					break;
 				case CMD_TARE:
-					tareLoadCell();
+					calibration->tareLoadCell();
 					sendResponseFrame(MSG_ACK, nullptr, 0);
 					break;
 
 				case CMD_RESET_BAGS:
-					resetBagCounter();
+					bag->resetBagCounter(g_bagData);
 					sendResponseFrame(MSG_ACK, nullptr, 0);
 					break;
 
@@ -160,7 +170,7 @@ void spiCommTask(void *parameter) {
 					if (len >= sizeof(float)) {
 						float offsetValue = 0.0f;
 						memcpy(&offsetValue, payloadPtr, sizeof(float));
-						setThermoOffset(offsetValue);
+						calibration->setThermoOffset(offsetValue);
 						sendResponseFrame(MSG_ACK, nullptr, 0);
 					} else {
 						sendResponseFrame(MSG_NACK, nullptr, 0);

@@ -4,10 +4,10 @@
 
 void VibrationModule::init(MPU6050 &mpuInstance) {
 	mpu = &mpuInstance;
-	LOG("[VIBRAION] MPU6050 Initialized");
+	LOG("[VIBRATION] MPU6050 Initialized");
 }
 
-bool VibrationModule::processImpact(int16_t ax, int16_t ay, int16_t az, jawDiagnostics &outResult) {
+bool VibrationModule::processImpact(int16_t ax, int16_t ay, int16_t az, JawDiagnostics &output) {
 	float rawMagnitude = sqrtf(((float)ax*ax + (float)ay*ay + (float)az*az));
 	float gForce = rawMagnitude / ACCEL_SCALE_FACTOR;
 

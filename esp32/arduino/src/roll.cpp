@@ -13,8 +13,7 @@ void RollModule::init(uint8_t trig1, uint8_t echo1, uint8_t trig2, uint8_t echo2
 	LOG("[ROLL] Roll module initialized");
 }
 
-void RollModule::calculateOffset() {
-	RollData output;
+void RollModule::calculateOffset(RollData &output) {
 	float ultra1_cm = ultra1->read();
 	float ultra2_cm = ultra2->read();
 
