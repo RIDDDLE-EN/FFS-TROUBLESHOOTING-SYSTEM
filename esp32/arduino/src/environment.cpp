@@ -1,27 +1,32 @@
 #include "environment.h"
 #include "logger.h"
 #include "config.h"
+#include "freertos/timers.h"
 #include <DHT.h>
 
 static DHT *dhtSensor = nullptr;
+static TimerHandle_t dhtTimer = nullptr;
+static EnvironmentData cachedEnvData = {0.0f, 0.0f, false};
 
+void dhtTimerCallback(TimerHandle_t xTimer) {
+	EnvironmentData freshData;
+	freshData.humidity = dhtSensor->readHumidity();
+	freshData.temperature = dhtSensor->readTemperature();
+	freshData.valid = !(isnan(freshData.humidity) || isnan(freshData.temperature));
+	cachedEnvData = freshData;
+}
 
 void EnvironmentModule::init() {
 	dhtSensor = new DHT(DHT_PIN, DHT11);
 	dhtSensor->begin();
 	LOG("[ENV] DHT Sensor initialized on pin %d", DHT_PIN);
+
+	dhtTimer = xTimerCreate("DHTTimer", pdMS_TO_TICKS(2000), pdTRUE, nullptr, dhtTimerCallback);
+	xTimerStart(dhtTimer,0);
 }
 
 EnvironmentData EnvironmentModule::read(EnvironmentData &output) {
-	output.humidity = dhtSensor->readHumidity();
-	output.temperature = dhtSensor->readTemperature();
-
-	if (isnan(output.humidity) || isnan(output.temperature)) {
-		output.valid = false;
-		LOG("[ENV] ERROR: Failed to read from DHT sensor!");
-	} else {
-		output.valid = true;
-	}
+	output = cachedEnvData;
 	return output;
 }
 

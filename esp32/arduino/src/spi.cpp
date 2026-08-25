@@ -6,11 +6,14 @@
 #include "bag.h"
 #include "loadcell.h"
 
+#include "freertos/task.h"
 #include <string.h>
 #include <Arduino.h>
 #include "driver/spi_slave.h"
 #include "driver/gpio.h"
 #include "esp_attr.h"
+
+TaskHandle_t xSpiTaskHandle = nullptr;
 
 static WORD_ALIGNED_ATTR uint8_t s_txBuf[SPI_PACKET_SIZE];
 static WORD_ALIGNED_ATTR uint8_t s_rxBuf[SPI_PACKET_SIZE];
@@ -51,7 +54,11 @@ static bool isFrameValid(const uint8_t *buf) {
 	return buf[SPI_PACKET_SIZE -1] == calculateCRC8(buf, SPI_PACKET_SIZE - 1);
 }
 
-void spiCommsInit() {
+void spiCommsInit(BagModule &b, CalibrationModule &c, LoadCellModule &l) {
+	s_bag = &b;
+	s_calibration = &c;
+	s_loadcell = &l;
+
 	gpio_set_direction((gpio_num_t)SPI_DATA_READY, GPIO_MODE_OUTPUT);
 	gpio_set_level((gpio_num_t)SPI_DATA_READY, 0);
 
@@ -72,12 +79,15 @@ void spiCommsInit() {
 }
 
 void spiCommTask(void *parameter) {
+	xSpiTaskHandle = xTaskGetCurrentTaskHandle();
+
 	InterpretedSensorData localDataFrame = {};
 	char logBuffer[LOG_MAX_MSG_LEN] = {};
 	bool outboundDataPending = false;
 	bool responsePending = false;
 
 	while (true) {
+		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
 		if (!responsePending) {
 			bool hasLog = logDequeue(logBuffer);
 			bool hasSensor = (xQueuePeek(queueProcessedToSPI, &localDataFrame, 0) == pdTRUE);

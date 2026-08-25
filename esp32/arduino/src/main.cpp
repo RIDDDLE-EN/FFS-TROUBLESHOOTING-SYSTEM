@@ -8,7 +8,6 @@ void setup() {
 
 	loggerInit();
 	sensorsInit();
-	spiCommsInit();
 
 	xTaskCreatePinnedToCore(spiCommTask, "SPIComm", 4096, nullptr, 4, nullptr, 0);
 	

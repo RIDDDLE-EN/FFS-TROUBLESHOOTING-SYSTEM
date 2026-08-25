@@ -1,11 +1,8 @@
 #include "loadcell.h"
 #include "logger.h"
-#include <Preferences.h>
 #include <Arduino.h>
 #include <algorithm>
 
-static HX711 scale;
-static Preferences prefs;
 const float EMA_ALPHA = 0.15f;
 float lastWeight = 0.0f;
 
@@ -44,6 +41,6 @@ void LoadCellModule::updateAndGetFiltered(LoadCellData &output) {
 	emaWeight = (EMA_ALPHA * currentWeight) + ((1.0f - EMA_ALPHA) * emaWeight);
 	output.weight_grams = emaWeight;
 	output.loadcell_ok = emaWeight > 0 ? true : false;
-	output.weight_stable = (fabsf(output.weight_grams - lastWeight) > WEIGHT_STABLE_BAND_G);
+	output.weight_stable = (fabsf(output.weight_grams - lastWeight) < WEIGHT_STABLE_BAND_G);
 	lastWeight = output.weight_grams;
 }

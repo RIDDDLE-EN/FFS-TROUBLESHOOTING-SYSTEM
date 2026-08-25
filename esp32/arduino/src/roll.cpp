@@ -3,7 +3,6 @@
 #include "logger.h"
 #include <Arduino.h>
 #include <cmath>
-#include <stdio.h>
 #include <Ultrasonic.h>
 
 static Ultrasonic *ultra1 = nullptr;

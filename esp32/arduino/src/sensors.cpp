@@ -6,6 +6,8 @@
 #include <MPU6050.h>
 #include "freertos/queue.h"
 
+extern TaskHandle_t xSpiTaskHandle;
+
 static HX711 			scale;
 static MPU6050			mpu;
 
@@ -18,9 +20,6 @@ static BagModule 		bag;
 static ThermocoupleModule	thermo;
 static RollModule		roll;
 
-static volatile uint32_t 	totalBagsProduced = 0;
-static QueueHandle_t		rawSensorQueue;
-static QueueHandle_t		diagnosticsQueue;
 
 BagData g_bagData = {0.0f, 0};
 QueueHandle_t queueProcessedToSPI = nullptr;
@@ -38,7 +37,7 @@ void sensorsInit() {
 	motor.init();
 	environment.init();
 
-	spiCommsInit();
+	spiCommsInit(bag, calibration, loadcell);
 
 	queueProcessedToSPI = xQueueCreate(5, sizeof(InterpretedSensorData));
 
@@ -57,7 +56,7 @@ void dataProcessingTask(void *pvParameters) {
 	InterpretedSensorData output = {};
 
 	TickType_t xLastWakeTime = xTaskGetTickCount();
-	const TickType_t xFrequency = pdMS_TO_TICKS(20);
+	const TickType_t xFrequency = pdMS_TO_TICKS(200);
 
 	while (1) {
 		// Environment
@@ -118,6 +117,9 @@ void dataProcessingTask(void *pvParameters) {
 		}
 
 		xQueueOverwrite(queueProcessedToSPI, &output);
+		if (xSpiTaskHandle != nullptr) {
+			xTaskNotifyGive(xSpiTaskHandle);
+		}
 		vTaskDelayUntil(&xLastWakeTime, xFrequency);
 	}
 }

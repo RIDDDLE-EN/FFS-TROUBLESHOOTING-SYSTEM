@@ -2,7 +2,6 @@
 #include "logger.h"
 #include <HX711.h>
 #include <Preferences.h>
-#include <algorithm>
 
 static HX711 *scale = nullptr;
 static Preferences prefs;
@@ -11,6 +10,7 @@ SemaphoreHandle_t mutexCalibration = nullptr;
 
 void CalibrationModule::init(HX711 &scaleInstance, uint8_t dt, uint8_t sck) {
 	mutexCalibration	= xSemaphoreCreateMutex();
+	scale = &scaleInstance;
 	scale->begin(dt, sck);
 }
 

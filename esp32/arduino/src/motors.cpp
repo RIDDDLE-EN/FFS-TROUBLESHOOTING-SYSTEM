@@ -57,16 +57,18 @@ void MotorModule::calibrateCurrentOffsets() {
 	LOG("[MOTORS] Baseline established -> Zero1: %.1f ADC, Zero2: %.1f ADC", zeroAdc1, zeroAdc2);
 }
 
+static portMUX_TYPE encoderMux = portMUX_INITIALIZER_UNLOCKED;
+
 float MotorModule::calculateRPM(EncoderState &enc) {
 	uint32_t now = millis();
 	uint32_t elapsedMs = now - enc.lastSample;
 
 	if (elapsedMs >= ENCODER_SAMPLE_MS) {
-		noInterrupts();
+		portENTER_CRITICAL(&encoderMux);
 		long counter = enc.counter;
 		enc.counter = 0;
 		bool direction = enc.forward;
-		interrupts();
+		portEXIT_CRITICAL(&encoderMux);
 
 		float elapsedMins = (float)elapsedMs / 60000.0f;
 		float rawRpm = ((float)counter / ENCODER_PPR) / elapsedMins;
