@@ -1,7 +1,9 @@
 #include "config.h"
 #include "roll.h"
 #include "logger.h"
+#include <Arduino.h>
 #include <cmath>
+#include <stdio.h>
 #include <Ultrasonic.h>
 
 static Ultrasonic *ultra1 = nullptr;
@@ -20,7 +22,7 @@ void RollModule::calculateOffset(RollData &output) {
 	output.ultrasonic_ok = (ultra1_cm > 0.0f && ultra2_cm > 0.0f);
 	if (output.ultrasonic_ok) {
 		output.roll_center_offset_cm = ultra1_cm - ultra2_cm;
-		output.roll_centered = fabsf(ouput.roll_center_offset_cm) < ROLL_CENTER_TOLERANCE_CM;
+		output.roll_centered = fabsf(output.roll_center_offset_cm) < ROLL_CENTER_TOLERANCE_CM;
 	}
 	
 	String str_ok = output.ultrasonic_ok ? "yes" : "no";

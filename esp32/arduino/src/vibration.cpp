@@ -1,5 +1,6 @@
 #include "vibration.h"
 #include "logger.h"
+#include <arduinoFFT.h>
 #include <cmath>
 
 void VibrationModule::init(MPU6050 &mpuInstance) {
@@ -48,14 +49,14 @@ bool VibrationModule::processImpact(int16_t ax, int16_t ay, int16_t az, JawDiagn
 			}
 		}
 
-		outResult.impact_amplitude = peakImpact;
-		outResult.knife_frequency = peakFreq;
-		outResult.is_updated = true;
+		output.impact_amplitude = peakImpact;
+		output.knife_frequency = peakFreq;
+		output.is_updated = true;
 
 		sampleIdx = 0;
 		return true;
 	}
 
-	outResult.is_updated = false;
+	output.is_updated = false;
 	return false;
 }

@@ -7,12 +7,12 @@
 struct ThermoData {
 	float seal_temp;
 	bool  tc_connected;
-	bool  tc_ok;
+	bool  thermocouple_ok;
 };
 
 class ThermocoupleModule {
 	public:
-		float read_tc(ThermoData &output, uint8_t tc_pin, CalibrationMdoule &cal);
+		float read_tc(ThermoData &output, uint8_t tc_pin, CalibrationModule &cal);
 
 	private:
 		float filteredTcAdc = 0.0f;

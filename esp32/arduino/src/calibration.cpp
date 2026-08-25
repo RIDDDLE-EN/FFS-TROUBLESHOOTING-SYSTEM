@@ -1,7 +1,7 @@
 #include "calibration.h"
 #include "logger.h"
 #include <HX711.h>
-#include <Preferences>
+#include <Preferences.h>
 #include <algorithm>
 
 static HX711 *scale = nullptr;
@@ -14,7 +14,7 @@ void CalibrationModule::init(HX711 &scaleInstance, uint8_t dt, uint8_t sck) {
 	scale->begin(dt, sck);
 }
 
-void CalibrationModule::setFactor(float factor) {
+void CalibrationModule::setLoadCellFactor(float factor) {
 	if (xSemaphoreTake(mutexCalibration, pdMS_TO_TICKS(100)) != pdTRUE) return;
 	if (prefs.begin("cal", false)) {
 		prefs.putFloat("lc_factor", factor);
@@ -36,7 +36,7 @@ void CalibrationModule::setThermoOffset(float offset) {
 }
 
 float CalibrationModule::getLoadCellFactor() {
-	if (xSemaphoreTake(mutexCalibration, pdMS_TO_TICKS(100)) != pdTRUE) return;
+	if (xSemaphoreTake(mutexCalibration, pdMS_TO_TICKS(100)) != pdTRUE) return 0.0f;
 	float loadcellFactor = 0;
 	
 	if (prefs.begin("cal", true)) {
@@ -47,8 +47,8 @@ float CalibrationModule::getLoadCellFactor() {
 	return loadcellFactor;
 }
 
-float CalibrationModule:getThermoOffset() {
-	if (xSemaphoreTake(mutexCalibration, pdMS_TO_TICKS(100)) != pdTRUE) return;
+float CalibrationModule::getThermoOffset() {
+	if (xSemaphoreTake(mutexCalibration, pdMS_TO_TICKS(100)) != pdTRUE) return 0.0f;
 	float offset = 0;
 	
 	if (prefs.begin("cal", true)) {

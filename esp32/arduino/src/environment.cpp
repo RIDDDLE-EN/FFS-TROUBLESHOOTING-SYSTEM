@@ -25,7 +25,7 @@ EnvironmentData EnvironmentModule::read(EnvironmentData &output) {
 	return output;
 }
 
-static EnvStatus EnvironmentModule::evaluateEnvironment(EnvironmentData &output) {
+EnvStatus EnvironmentModule::evaluateEnvironment(EnvironmentData &output) {
 	float temp = output.temperature;
 	float hum  = output.humidity;
 	if (!output.valid)		return ENV_SENSOR_FAULT;

@@ -1,5 +1,7 @@
 #pragma once
 #include <stdint.h>
+#include <Arduino.h>
+#include <HX711.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
@@ -14,4 +16,4 @@ class CalibrationModule {
 		float getLoadCellFactor();
 		void tareLoadCell();
 		int32_t readRawWeightAverage(uint8_t samples);
-}
+};

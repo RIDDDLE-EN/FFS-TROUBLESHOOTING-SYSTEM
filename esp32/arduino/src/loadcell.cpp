@@ -1,5 +1,7 @@
 #include "loadcell.h"
 #include "logger.h"
+#include <Preferences.h>
+#include <Arduino.h>
 #include <algorithm>
 
 static HX711 scale;
@@ -7,7 +9,7 @@ static Preferences prefs;
 const float EMA_ALPHA = 0.15f;
 float lastWeight = 0.0f;
 
-void LoadCellModule::init(HX711 &scaleInstace, CalibrationModule &calibration) {
+void LoadCellModule::init(HX711 &scaleInstance, CalibrationModule &calibration) {
 	scale = &scaleInstance;
 	loadCellFactor = calibration.getLoadCellFactor();
 
@@ -20,14 +22,14 @@ void LoadCellModule::init(HX711 &scaleInstace, CalibrationModule &calibration) {
 }
 
 void LoadCellModule::setFactor(float factor) {
-	loadCellFacotr = factor;
+	loadCellFactor = factor;
 	if (loadCellFactor != 0.0f) {
 		scale->set_scale(loadCellFactor);
 	}
 }
 
 void LoadCellModule::updateAndGetFiltered(LoadCellData &output) {
-	if (!scale.is_ready() || loadCellFactor == 0.0f) return emaWeight;
+	if (!scale->is_ready() || loadCellFactor == 0.0f) return;
 
 	rawHistory[historyIdx] = scale->read();
 	historyIdx = (historyIdx + 1) % MEDIAN_WINDOW;

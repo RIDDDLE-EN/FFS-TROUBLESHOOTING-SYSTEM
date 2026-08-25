@@ -132,11 +132,11 @@ void spiCommTask(void *parameter) {
 				
 				case CMD_CAL_START:
 					s_calibrationActive = true;
-					calibration->setLoadCellFactor(0.0f);
-					calibration->tareLoadCell();
+					s_calibration->setLoadCellFactor(0.0f);
+					s_calibration->tareLoadCell();
 					vTaskDelay(pdMS_TO_TICKS(100));
 					{
-						int32_t rawWeightAvg = calibration.readRawWeightAverage(10);
+						int32_t rawWeightAvg = s_calibration->readRawWeightAverage(10);
 						sendResponseFrame(MSG_CAL_RAW_WEIGHT, &rawWeightAvg, sizeof(rawWeightAvg));
 					}
 					break;
@@ -145,8 +145,8 @@ void spiCommTask(void *parameter) {
 						float scaleFactor = 0.0f;
 						memcpy(&scaleFactor, payloadPtr, sizeof(float));
 						if (scaleFactor != 0.0f) {
-							loadcell->setFactor(scaleFactor);
-							calibration->setFactor(scaleFactor);
+							s_loadcell->setFactor(scaleFactor);
+							s_calibration->setLoadCellFactor(scaleFactor);
 							s_calibrationActive = false;
 							sendResponseFrame(MSG_ACK, nullptr, 0);
 						} else {
@@ -157,12 +157,12 @@ void spiCommTask(void *parameter) {
 					}
 					break;
 				case CMD_TARE:
-					calibration->tareLoadCell();
+					s_calibration->tareLoadCell();
 					sendResponseFrame(MSG_ACK, nullptr, 0);
 					break;
 
 				case CMD_RESET_BAGS:
-					bag->resetBagCounter(g_bagData);
+					s_bag->resetBagCounter(g_bagData);
 					sendResponseFrame(MSG_ACK, nullptr, 0);
 					break;
 
@@ -170,7 +170,7 @@ void spiCommTask(void *parameter) {
 					if (len >= sizeof(float)) {
 						float offsetValue = 0.0f;
 						memcpy(&offsetValue, payloadPtr, sizeof(float));
-						calibration->setThermoOffset(offsetValue);
+						s_calibration->setThermoOffset(offsetValue);
 						sendResponseFrame(MSG_ACK, nullptr, 0);
 					} else {
 						sendResponseFrame(MSG_NACK, nullptr, 0);

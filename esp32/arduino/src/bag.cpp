@@ -6,11 +6,10 @@
 void BagModule::init(uint8_t laserPin, uint8_t ldrPin) {
 	pinMode(laserPin, OUTPUT);
 	digitalWrite(laserPin, HIGH);
-	pinMode(ldrPin, INPUT);
 }
 
 void BagModule::processBag(BagData &output, float beltSpeed) {
-	ldr_raw = analogRead(LDR_PIN);
+	int ldr_raw = analogRead(LDR_PIN);
 
 	if (!beamBlocked && ldr_raw < LDR_BLOCKED_THRESHOLD) {
 		beamBlocked = true;
@@ -29,7 +28,7 @@ void BagModule::processBag(BagData &output, float beltSpeed) {
 }
 
 void BagModule::resetBagCounter(BagData &output) {
-	output.bagProduced = 0;
+	output.bagsProduced = 0;
 	LOG("[BAG] Bag counter is set to 0");
 }
 

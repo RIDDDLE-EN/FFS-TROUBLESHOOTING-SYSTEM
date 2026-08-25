@@ -1,5 +1,6 @@
 #include "sensors.h"
-#include "spi_comms"
+#include "spi_comms.h"
+#include "thermocouple.h"
 #include <Wire.h>
 #include <HX711.h>
 #include <MPU6050.h>
@@ -8,7 +9,7 @@
 static HX711 			scale;
 static MPU6050			mpu;
 
-static CalibrationModoule	calibration;
+static CalibrationModule	calibration;
 static LoadCellModule 		loadcell;
 static MotorModule		motor;
 static EnvironmentModule	environment;
@@ -25,7 +26,7 @@ BagData g_bagData = {0.0f, 0};
 QueueHandle_t queueProcessedToSPI = nullptr;
 
 void sensorsInit() {
-	Wire.begin(I2C_SDA, I2C_SCL);
+	Wire.begin(MPU_SDA, MPU_SCL);
 	mpu.initialize();
 
 	calibration.init(scale, HX_DT, HX_SCK);
@@ -33,7 +34,7 @@ void sensorsInit() {
 	vibration.init(mpu);
 
 	bag.init(LASER_PIN, LDR_PIN);
-	roll.init(TRIG1, ECHO1, TRIG2, ECHO2);
+	roll.init(ULTRA1_TRIG, ULTRA1_ECHO, ULTRA2_TRIG, ULTRA2_ECHO);
 	motor.init();
 	environment.init();
 
@@ -43,7 +44,7 @@ void sensorsInit() {
 
 	xTaskCreatePinnedToCore(
 		dataProcessingTask,
-		"SensorDSP:,
+		"SensorDSP",
 		8192,
 		nullptr,
 		5,
@@ -55,13 +56,13 @@ void sensorsInit() {
 void dataProcessingTask(void *pvParameters) {
 	InterpretedSensorData output = {};
 
-	TickType_t xLastWakeTime = xTaksGetTickCount();
+	TickType_t xLastWakeTime = xTaskGetTickCount();
 	const TickType_t xFrequency = pdMS_TO_TICKS(20);
 
 	while (1) {
 		// Environment
 		EnvironmentData envData;
-		environment.read(endData);
+		environment.read(envData);
 		output.ambient_temp = envData.temperature;
 		output.ambient_hum  = envData.humidity;
 		output.env_sensor_ok = envData.valid;
@@ -80,7 +81,7 @@ void dataProcessingTask(void *pvParameters) {
 
 		// Load cell
 		LoadCellData lcData;
-		loadCell.updateAndGetFiltered(lcData);
+		loadcell.updateAndGetFiltered(lcData);
 		output.weight_grams = lcData.weight_grams;
 		output.loadcell_ok  = lcData.loadcell_ok;
 
@@ -91,10 +92,10 @@ void dataProcessingTask(void *pvParameters) {
 
 		// Thermocouple
 		ThermoData tcData;
-		thermo.read_tc(tcData, TC_PIN, calibration);
+		thermo.read_tc(tcData, TC_PLUS, calibration);
 		output.seal_temp = tcData.seal_temp;
 		output.tc_connected = tcData.tc_connected;
-		output.thermocople_ok = tcData.thermocouple_ok;
+		output.thermocouple_ok = tcData.thermocouple_ok;
 
 		// Roll Centering
 		RollData rollData;
@@ -104,7 +105,7 @@ void dataProcessingTask(void *pvParameters) {
 		output.ultrasonic_ok = rollData.ultrasonic_ok;
 
 		// Vibration
-		int16_t ax, ay az;
+		int16_t ax, ay, az;
 		mpu.getAcceleration(&ax, &ay, &az);
 		JawDiagnostics jawDiag;
 
