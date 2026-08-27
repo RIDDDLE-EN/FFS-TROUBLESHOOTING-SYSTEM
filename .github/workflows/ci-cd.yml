@@ -2,46 +2,101 @@ name: FFS System CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  test-hardware-and-comms:
-    name: Validate Hardware & Docker Comms
+  changes:
+    name: Detect Directory Changes
     runs-on: ubuntu-latest
+    outputs:
+      esp: ${{ steps.filter.outputs.esp }}
+      pi: ${{ steps.filter.outputs.pi }}
+      web: ${{ steps.filter.outputs.web }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            esp:
+              - 'esp32/arduino/**'
+            pi:
+              - 'raspberry_pi/**'
+            web:
+              - 'web/**'
+
+  esp32-check:
+    name: ESP32 Compile Verification
+    needs: changes
+    if: ${{ needs.changes.outputs.esp == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./esp32/arduino
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
-          cache: 'pip'
+          python-version: '3.11'
 
-      - name: Cache PlatformIO
+      - name: Cache PlatformIO Core, Toolchains & Packages
         uses: actions/cache@v3
         with:
-          path: ~/.platformio
-          key: ${{ runner.os }}-pio
+          path: |
+            ~/.platformio/packages
+            ~/.platformio/platforms
+            ~/.platformio/penv
+            ./esp32/arduino/.pio
+          key: ${{ runner.os }}-pio-full-${{ hashFiles('esp32/arduino/platformio.ini') }}
+          restore-keys: |
+          ${{ runner.os }}-pio-full-
 
       - name: Install PlatformIO
-        run: pip install platformio
+        run: python -m pip install platformio
 
       - name: Compile ESP32 Firmware
-        working-directory: ./esp32/arduino
         run: pio run -e esp32dev
+
+  pi-check:
+    name: Raspberry Pi Code Linting
+    needs: changes
+    if: ${{ needs.changes.outputs.pi == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./raspberry_pi
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv Package Manager
+        uses: astral-sh/setup-uv@v3
+
+      - name: Fast Linting (Ruff)
+        run: |
+          uv pip install --system ruff
+          ruff check .
+
+  web-docker-test:
+    name: Docker Comms Test (Nginx -> App -> Pi)
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.pi == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install flake8 requests flask flask-cors socketio
-          if [ -f web/app/requirements.txt ]; then python -m pip install -r web/app/requirements.txt; fi
-
-      - name: Run Flake8 on Raspberry Pi Code
-        working-directory: ./raspberry_pi
-        run: python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          python -m pip install requests flask flask-cors socketio
 
       - name: Test Docker Compose Stack (Nginx -> App -> Pi)
         run: |
@@ -59,7 +114,9 @@ jobs:
           EOF
           python mock_pi.py &
 
-          cd web
+      - name: Test Docker Compose Stack
+        working-directory: ./web
+        run: |
           mkdir -p ./app
 
           RUNNER_IP=$(hostname -I | awk '{print $1}')
@@ -94,10 +151,15 @@ jobs:
 
   release-and-build:
     name: Version Repo & Push to Docker Hub
-    needs: test-hardware-and-comms
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [changes, esp32-check, pi-check, web-docker-test ]
+    if: |
+      always() &&
+      github.event_name == 'push' && 
+      github.ref == 'refs/heads/main' &&
+      needs.esp32-check.result != 'failure' && needs.esp32-check.result != 'cancelled' &&
+      needs.pi-check.result != 'failure' && needs.pi-check.result != 'cancelled' &&
+      needs.web-docker-test.result != 'failure' && needs.web-docker-test.result != 'cancelled'
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
       issues: write
@@ -109,14 +171,6 @@ jobs:
         with:
           fetch-depth: 0
       
-      - name: Check for changes in web directory
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            web:
-              - 'web/**'
-
       - name: Create Semantic Release Configuration
         run: |
           cat << 'EOF' > .releaserc.json
@@ -137,14 +191,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
-        if: steps.semantic.outputs.new_release_published == 'true' && steps.filter.outputs.web == 'true'
+        if: steps.semantic.outputs.new_release_published == 'true' && needs.changes.outputs.web == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and Push Docker Image via Compose
-        if: steps.semantic.outputs.new_release_published == 'true' && steps.filter.outputs.web == 'true'
+        if: steps.semantic.outputs.new_release_published == 'true' && needs.changes.outputs.web == 'true'
         working-directory: ./web
         run: |
           VERSION=${{ steps.semantic.outputs.new_release_version }}
