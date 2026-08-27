@@ -108,6 +108,14 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      
+      - name: Check for changes in web directory
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'web/**'
 
       - name: Create Semantic Release Configuration
         run: |
@@ -129,13 +137,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
+        if: steps.semantic.outputs.new_release_published == 'true' && steps.filter.outputs.web == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and Push Docker Image via Compose
-        if: steps.semantic.outputs.new_release_published == 'true'
+        if: steps.semantic.outputs.new_release_published == 'true' && steps.filter.outputs.web == 'true'
         working-directory: ./web
         run: |
           VERSION=${{ steps.semantic.outputs.new_release_version }}
