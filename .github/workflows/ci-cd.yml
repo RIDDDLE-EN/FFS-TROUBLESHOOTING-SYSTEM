@@ -53,7 +53,7 @@ jobs:
             ./esp32/arduino/.pio
           key: ${{ runner.os }}-pio-full-${{ hashFiles('esp32/arduino/platformio.ini') }}
           restore-keys: |
-          ${{ runner.os }}-pio-full-
+            ${{ runner.os }}-pio-full-
 
       - name: Install PlatformIO
         run: python -m pip install platformio
