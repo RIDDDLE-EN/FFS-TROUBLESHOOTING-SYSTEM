@@ -198,6 +198,10 @@ def api_emergency_stop():
 def api_feed_speed():
     return _control_post("/api/control/motors/feed1/speed")
 
+@app.post("/api/control/motors/feed2/speed")
+def api_feed2_speed():
+    return _control_post("/api/control/feed2/speed")
+
 
 @app.post("/api/control/feed/pulse")
 def api_feed_pulse():
@@ -219,36 +223,9 @@ def api_settings():
     data, status = _get_pi("/api/control/settings")
     return jsonify(data), 200 if status == 404 else status
 
-
-@app.post("/api/control/bag_length")
-def api_bag_length():
-    return _control_post("/api/control/bag_length")
-
-
-@app.post("/api/control/target_weight")
-def api_target_weight():
-    return _control_post("/api/control/target_weight")
-
-
-@app.post("/api/control/seal_temp")
-def api_seal_temp():
-    return _control_post("/api/control/seal_temp")
-
-
-@app.post("/api/control/fan_threshold")
-def api_fan_threshold():
-    return _control_post("/api/control/fan_threshold")
-
-
-@app.post("/api/control/pid")
-def api_pid():
-    return _control_post("/api/control/pid")
-
-
-@app.post("/api/control/thermo_offset")
-def api_thermo_offset():
-    return _control_post("/api/control/thermo_offset")
-
+@app.post("/api/control/settings")
+def api_settings_post():
+    return _control_post("/api/control/settings")
 
 @app.post("/api/calibrate/loadcell/start")
 def api_lc_start():

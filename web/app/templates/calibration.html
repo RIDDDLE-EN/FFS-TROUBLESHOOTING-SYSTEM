@@ -6,7 +6,7 @@
     <div class="body">
       <div class="form-grid">
         <div><label class="subtle">Known weight (g)</label><input class="input" id="knownWeight" type="number" step="0.1" value="100"></div>
-        <div><label class="subtle">Measured reading (g)</label><input class="input" id="measuredWeight" type="number" step="0.1" value="96.8"></div>
+	<div><label class="subtle">Measured reading (g)</label><input class="input" id="measuredWeight" type="number" readonly placeholder=100.0></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
         <button class="btn primary" onclick="startLoadcellCalibration()">Start calibration</button>
@@ -20,8 +20,8 @@
     <div class="head">Thermocouple Calibration</div>
     <div class="body">
       <div class="form-grid">
-        <div><label class="subtle">Reference temperature (°C)</label><input class="input" id="refTemp" type="number" step="0.1" value="25"></div>
-        <div><label class="subtle">Current reading (°C)</label><input class="input" id="currentTemp" type="number" step="0.1" value="24.2"></div>
+	<div><label class="subtle">Reference temperature (°C)</label><input class="input" id="refTemp" type="number" readonly placeholder=25.0></div>
+	<div><label class="subtle">Current reading (°C)</label><input class="input" id="currentTemp" type="number" readonly placeholder=24.2></div>
         <div><label class="subtle">Offset to apply (°C)</label><input class="input" id="calOffset" type="number" step="0.1" value="0.8"></div>
         <div><label class="subtle">Calibration status</label><input class="input" id="calStatus" type="text" readonly placeholder="Unknown"></div>
       </div>

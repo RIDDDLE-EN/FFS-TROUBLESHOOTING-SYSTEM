@@ -199,7 +199,7 @@ function setMode(mode){
 
   const caption = qs('modeCaption');
   if(caption){
-    caption.textContent = state.mode === 'demo' ? 'Presentation view' : 'Laptop UI';
+    caption.textContent = state.mode === 'demo' ? 'Presentation view' : 'WEB UI';
   }
 
   const summaryMode = qs('summaryMode');
@@ -775,16 +775,16 @@ async function refreshSettings(){
 
 async function saveSettings(){
   const payload = {
-    bag_length_cm: Number(qs('bag_length').value),
-    target_weight_g: Number(qs('target_weight').value),
-    seal_temp_c: Number(qs('seal_temp').value),
-    thermo_offset_c: Number(qs('thermo_offset').value),
-    fan_temp_on_c: Number(qs('fan_temp_on').value),
-    fan_temp_off_c: Number(qs('fan_temp_off').value),
-    roll_pid_kp: Number(qs('pid_kp').value),
-    roll_pid_ki: Number(qs('pid_ki').value),
-    roll_pid_kd: Number(qs('pid_kd').value),
-    hold_time_s: Number(qs('hold_time').value),
+    bag_length_cm: Number(qs('bag_length').value || 18),
+    target_weight_g: Number(qs('target_weight').value || 250),
+    seal_temp_c: Number(qs('seal_temp').value || 160),
+    thermo_offset_c: Number(qs('thermo_offset').value || 0),
+    fan_temp_on_c: Number(qs('fan_temp_on').value || 32),
+    fan_temp_off_c: Number(qs('fan_temp_off').value || 30),
+    roll_pid_kp: Number(qs('pid_kp').value || 0.9),
+    roll_pid_ki: Number(qs('pid_ki').value || 0.05),
+    roll_pid_kd: Number(qs('pid_kd').value || 0.12),
+    hold_time_s: Number(qs('hold_time').value || 1.5),
   };
 
   if(state.mode === 'demo'){
@@ -794,18 +794,8 @@ async function saveSettings(){
     renderSharedPanels(state.latest, state.demo.alerts, state.demo.logs);
     return;
   }
-
-  const endpoints = [
-    ['/api/control/bag_length', {bag_length_cm: payload.bag_length_cm}],
-    ['/api/control/target_weight', {target_weight_g: payload.target_weight_g}],
-    ['/api/control/seal_temp', {seal_temp_c: payload.seal_temp_c}],
-    ['/api/control/thermo_offset', {thermo_offset_c: payload.thermo_offset_c}],
-    ['/api/control/fan_threshold', {fan_temp_on_c: payload.fan_temp_on_c, fan_temp_off_c: payload.fan_temp_off_c}],
-    ['/api/control/pid', {roll_pid_kp: payload.roll_pid_kp, roll_pid_ki: payload.roll_pid_ki, roll_pid_kd: payload.roll_pid_kd}],
-  ];
-
-  for(const [url, body] of endpoints) await apiPost(url, body);
-  pushToast('Settings sent to Pi');
+  
+  return sendControl('/api/control/settings', payload);
 }
 
 function pushToast(message){
@@ -845,15 +835,28 @@ async function cancelLoadcellCalibration(){ return sendControl('/api/calibrate/l
 
 async function checkThermocouple(){
   const status = qs('calStatus');
+  const currentInput = qs('currentTemp');
+  const refInput = qs('refTemp');
+
   if(state.mode === 'demo'){
     if(status) status.value = 'OK (demo)';
     pushDemoLog('info', 'Thermocouple check passed in presentation mode');
     return;
   }
   const r = await apiGet('/api/calibrate/thermocouple/check');
+  const payload = r.data || {};
+
+  if(r.ok) {
+    if(currentInput && payload.current_temp_c !== undefined) {
+      currentInput.value = payload.current_temp_c;
+    }
+    if(refInput && payload.reference_temp_c !== undefined) {
+      refInput.value = payload.reference_temp_c;
+    }
+  }
+
   if(status){
-    const payload = r.data || {};
-    status.value = payload.status || payload.message || (r.ok ? 'OK' : 'Error');
+    status.value = payload.status || payload.message || (r.ok ? 'OK' : 'ERROR');
   }
 }
 async function calibrateThermocouple(){

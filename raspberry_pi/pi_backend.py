@@ -14,6 +14,7 @@ import motors
 from alerts import AlertEngine
 from database import Database
 from interpreter import interpret
+from sensor_data import RawSensorData
 
 log = logging.getLogger("FFTS.Backend")
 
@@ -64,14 +65,16 @@ def _apply_machine_actions(ui_data: dict):
     temp = float(ui_data.get("temperature", {}).get("ambient", 0.0))
     hum = float(ui_data.get("temperature", {}).get("humidity", 0.0))
     env_ok = bool(ui_data.get("env_sensor_ok", True))
+    
     roll = ui_data.get("roll", {})
     offset_cm = float(roll.get("diff_cm", 0.0))
     centered = bool(roll.get("centered", True))
+    ultrasonic_ok = bool(roll.get("ultrasonic_ok", True))
 
     fan_state = motors.auto_control_environment(temp, hum, env_ok)
     ui_data.setdefault("temperature", {})["fan_required"] = bool(fan_state)
 
-    motors.auto_center_roll(offset_cm=offset_cm, centered=centered, ultrasonic_ok=True)
+    motors.auto_center_roll(offset_cm=offset_cm, centered=centered, ultrasonic_ok=ultrasonic_ok)
 
 
 def telemetry_loop():
@@ -79,11 +82,7 @@ def telemetry_loop():
     while True:
         try:
             if S.spi is not None:
-                raw_obj = None
-                if S.spi.data_ready():
-                    raw_obj = S.spi.read_sensors()
-                else:
-                    raw_obj = S.spi.read_sensors()
+                raw_obj = S.spi.read_sensors() if S.spi.data_ready() else None
 
                 if raw_obj:
                     S.latest_raw = raw_obj
@@ -107,8 +106,10 @@ def telemetry_loop():
             time.sleep(1.0)
 
 
-@app.get("/api/health")
+@app.get("/api/status")
 def api_health():
+    _emit_log("PI", "sending pi status", "INFO")
+
     return jsonify({
         "status": "ok",
         "uptime_s": int(time.time() - S.start_time),
@@ -120,6 +121,7 @@ def api_health():
 
 @app.get("/api/sensors/latest")
 def api_sensors_latest():
+    _emit_log("SENSORS", "sending latest sensor readings" if S.latest_ui else "No data yet", "INFO" if S.latest_ui else "WARNING")
     if not S.latest_ui:
         return jsonify({"error": "No data yet"}), 503
     return jsonify({"ts": S.latest_raw.timestamp_ms, "data": S.latest_ui})
@@ -129,6 +131,7 @@ def api_sensors_latest():
 def api_sensors_history():
     hours = int(request.args.get("hours", 1))
     interval = int(request.args.get("interval", 60))
+    _emit_log("SENSOR", "Sending sensor history", "INFO")
     return jsonify(S.db.get_sensor_history(hours=hours, interval=interval) if S.db else [])
 
 
@@ -136,6 +139,7 @@ def api_sensors_history():
 def api_alerts():
     limit = int(request.args.get("limit", 50))
     unresolved = request.args.get("unresolved", "false").lower() == "true"
+    _emit_log("ALERTS", "Sending Alerts", "INFO")
     return jsonify(S.db.get_alerts(limit=limit, unresolved_only=unresolved) if S.db else [])
 
 
@@ -177,6 +181,7 @@ def api_reset_bags():
 @app.post("/api/control/ping")
 def api_ping():
     ok = S.spi.ping() if S.spi else False
+    _emit_log("PING", "Successfully pinged pi", "INFO")
     return jsonify({"ok": ok})
 
 
@@ -234,6 +239,7 @@ def api_stepper_center():
 
 @app.post("/api/calibrate/loadcell/start")
 def api_lc_start():
+    _emit_log("LOADCELL", "calibration started" if S.spi else "SPI unavailable", "INFO" if S.spi else "ERROR")
     if not S.spi:
         return jsonify({"error": "SPI unavailable"}), 503
     raw = S.spi.calibration_start()
@@ -254,14 +260,89 @@ def api_lc_cancel():
     _emit_log("CALIBRATION", "Load cell calibration cancelled", "INFO")
     return jsonify({"ok": True})
 
+@app.get("/api/calibrate/thermocouple/check")
+def api_tc_check():
+    _emit_log("CALIBRATION", "Updating current reading" if S.latest_ui else "No sensor data available", "INFO" if S.latest_ui else "ERROR")
+    
+    if not S.latest_ui:
+        return jsonify({"ok": False, "error": "No sensor data available"}), 503
 
-@app.post("/api/control/set_temp")
-def api_set_temp():
+    current_tc = float(S.latest_ui.get("temperature", {}). get("thermocouple", 25.0))
+
+    ref_tc = getattr(S.lateset_ui.get("temperature", {}).get("mlx90614", 30))
+
+    offset_tc = ref_tc - current_tc
+
+    _emit_log("THERMOCOUPLE", f"Thermocouple offset: {offset_tc} C", "INFO")
+    return jsonify({
+        "ok": True,
+        "current_temp_c": current_tc,
+        "reference_temp_c": ref_tc,
+        "offset": offset_tc,
+        "satus": "Read OK"
+    })
+
+@app.post("/api/calibrate/thermocouple")
+def api_set_offset():
     body = request.get_json(silent=True) or {}
-    temp = body.get("temp")
-    if temp is None:
-        return jsonify({"ok": False, "error": "temp is required"}), 400
-    return jsonify({"ok": True, "temp": float(temp)})
+    current_temp = float(body.get("current_temp_c", 0.0))
+    offset = float(body.get("offset_c", 0.0))
+
+    _emit_log("THERMOCOUPLE", f"Offset set to {offset} C", "INFO") 
+
+    if not S.spi:
+        return jsonify({"ok": False, "error": "SPI unavailable"}), 503
+
+    ok = S.spi.set_thermo_offset(offset)
+
+    if ok:
+        return jsonify({"ok": True})
+    else:
+        _emit_log("THERMOCOUPLE", "Failed to send thermocouple offset to ESP32", "ERROR")
+        return jsonify({"ok": False, "error": "SPI transfer failed"}), 500
+
+SETTINGS_MAP = {
+    "bag_length_cm": ("BAG_LENGTH_CM", float),
+    "target_weight_g": ("TARGET_WEIGHT_G", float),
+    "seal_temp_c": ("SEAL_TEMP_C", float),
+    "thermo_offset_c": ("THERMO_OFFSET_C", float),
+    "fan_temp_on_c": ("FAN_TEMP_ON", float),
+    "fan_temp_off_c": ("FAN_TEMP_OFF", float),
+    "roll_pid_kp": ("PID_KP", float),
+    "roll_pid_ki": ("PID_KI", float),
+    "roll_pid_kd": ("PID_KD", float),
+    "hold_time_s": ("HOLD_TIME_S", float),
+}
+
+@app.get("/api/control/settings")
+def api_settings_get():
+    current_settings = {
+        json_key: getattr(cfg, attr_name, 0.0)
+        for json_key, (attr_name, _) in SETTINGS_MAP.items()
+    }
+    _emit_log("CONTROL_SETTINGS", "Successfully reloaded controls", "INFO")
+    return jsonify(current_settings), 200
+
+@app.post("/api/control/settings")
+def api_set_bag_length():
+    body = request.get_json(silent=True) or {}
+    updated_fields = []
+
+    for json_key, value in body.items():
+        if json_key in SETTINGS_MAP and value is not None:
+            attr_name, cast_type = SETTINGS_MAP[json_key]
+            try:
+                typed_val = cast_type(value)
+                setattr(cfg, attr_name, typed_val)
+                updated_fields.append(json_key)
+            except (ValueError, TypeError):
+                continue
+    _emit_log("CONTROL_SETTINGS", "Successfully set controls" if updated_fields else "No valid setting keys provided", "INFO" if updated_fields else "ERROR")
+
+    if not updated_fields:
+        return jsonify({"ok": False, "error": "No valid setting keys provided"}), 400
+
+    return jsonify({"ok": True, "updated": updated_fields}), 200
 
 
 @sio.on("connect")
@@ -275,10 +356,13 @@ def start_backend(spi_instance, cycle_instance, db_instance, alerts_instance):
     S.cycle = cycle_instance
     S.db = db_instance
     S.alerts = alerts_instance
+    S.latest_raw = RawSensorData
+    S.latest_ui = interpret(S.latest_raw)
 
     if S.db:
         _emit_log("SYSTEM", "Backend initialized", "INFO")
 
-    threading.Thread(target=telemetry_loop, daemon=True, name="TelemetryLoop").start()
+    #threading.Thread(target=telemetry_loop, daemon=True, name="TelemetryLoop").start()
     log.info("Starting web API on %s:%d", cfg.BACKEND_HOST, cfg.BACKEND_PORT)
     sio.run(app, host=cfg.BACKEND_HOST, port=cfg.BACKEND_PORT, debug=False, use_reloader=False)
+    return app

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import queue
 import time
 from dataclasses import dataclass
 
@@ -44,8 +45,12 @@ log = logging.getLogger(__name__)
 _pwm_feed = None
 _fan_enabled = False
 _feed_duty = cfg.FEED_MOTOR_DEFAULT_DC
+
 _stepper_pos_mm = 0.0
-_stepper_lock = threading.Lock()
+_stepper_queue = queue.Queue()
+_stepper_worker_thread = None
+
+_pid_lock = threading.Lock()
 _pid_integral = 0.0
 _pid_prev_error = 0.0
 _pid_last_ts = 0.0
@@ -53,7 +58,7 @@ _pid_last_move_ts = 0.0
 
 
 def motors_init():
-    global _pwm_feed
+    global _pwm_feed, _stepper_worker_thread
 
     for pin in (cfg.FEED_EN, cfg.FEED_IN1, cfg.FEED_IN2, cfg.FAN_PIN,
                 cfg.STEPPER_STEP, cfg.STEPPER_DIR, cfg.STEPPER_EN):
@@ -68,6 +73,15 @@ def motors_init():
     GPIO.output(cfg.STEPPER_EN, GPIO.HIGH)
     fan_off()
     feed_off()
+
+    if _stepper_worker_thread is None or not _stepper_worker_thread.is_alive():
+        _stepper_worker_thread = threading.Thread(
+            target=stepper_worker_loop,
+            daemon=True,
+            name="StepperWorker"
+        )
+        _stepper_worker_thread.start()
+    
     log.info("Single-feed motor, stepper and fan initialized")
 
 
@@ -78,6 +92,7 @@ def motors_cleanup():
         GPIO.output(cfg.STEPPER_EN, GPIO.HIGH)
         if _pwm_feed:
             _pwm_feed.stop()
+        _stepper_queue.put(None)
     finally:
         log.info("Motors cleaned up")
 
@@ -159,39 +174,52 @@ def _steps_per_mm() -> float:
     return (cfg.STEPPER_STEPS_PER_REV * cfg.STEPPER_MICROSTEP) / cfg.STEPPER_MM_PER_REV
 
 
-def stepper_move_mm(delta_mm: float):
+def stepper_worker_loop():
     global _stepper_pos_mm
 
-    delta_mm = float(delta_mm)
-    if abs(delta_mm) < 1e-6:
-        return
+    while True:
+        try:
+            delta_mm = _stepper_queue.get()
+            if delta_mm is None:
+                break
 
-    with _stepper_lock:
-        target = max(-cfg.STEPPER_MAX_MM, min(cfg.STEPPER_MAX_MM, _stepper_pos_mm + delta_mm))
-        actual_delta = target - _stepper_pos_mm
-        if abs(actual_delta) < 0.01:
-            return
+            target = max(-cfg.STEPPER_MAX_MM, min(cfg.STEPPER_MAX_MM, _stepper_pos_mm + delta_mm))
+            actual_delta = target - _stepper_pos_mm
+            
+            if abs(actual_delta) < 0.01:
+                _stepper_queue.task_done()
+                continue
 
-        direction = GPIO.HIGH if actual_delta > 0 else GPIO.LOW
-        GPIO.output(cfg.STEPPER_DIR, direction)
-        GPIO.output(cfg.STEPPER_EN, GPIO.LOW)
+            direction = GPIO.HIGH if actual_delta > 0 else GPIO.LOW
+            GPIO.output(cfg.STEPPER_DIR, direction)
+            GPIO.output(cfg.STEPPER_EN, GPIO.LOW)
 
-        steps = max(1, int(round(abs(actual_delta) * _steps_per_mm())))
-        half = cfg.STEPPER_STEP_DELAY_S / 2.0
-        for _ in range(steps):
-            GPIO.output(cfg.STEPPER_STEP, GPIO.HIGH)
-            time.sleep(half)
-            GPIO.output(cfg.STEPPER_STEP, GPIO.LOW)
-            time.sleep(half)
+            steps = max(1, int(round(abs(actual_delta) * _steps_per_mm())))
+            half = cfg.STEPPER_STEP_DELAY_S / 2.0
+            
+            for _ in range(steps):
+                GPIO.output(cfg.STEPPER_STEP, GPIO.HIGH)
+                time.sleep(half)
+                GPIO.output(cfg.STEPPER_STEP, GPIO.LOW)
+                time.sleep(half)
 
-        GPIO.output(cfg.STEPPER_EN, GPIO.HIGH)
-        _stepper_pos_mm = target
-        log.info("Stepper moved %.2f mm -> %.2f mm", actual_delta, _stepper_pos_mm)
+            GPIO.output(cfg.STEPPER_EN, GPIO.HIGH)
+            _stepper_pos_mm = target
+            log.info("Stepper moved %.2f mm -> %.2f mm", actual_delta, _stepper_pos_mm)
+
+            _stepper_queue.task_done()
+        except Exception as exc:
+            log.error("Stepper worker error: %s", exc)
 
 
 def stepper_get_position_mm() -> float:
     return _stepper_pos_mm
 
+def stepper_move(delta_mm: float):
+    delta_mm = float(delta_mm)
+    if abs(delta_mm) < 1e-6:
+        return
+    _stepper_queue.put(delta_mm)
 
 def auto_center_roll(offset_cm: float, centered: bool = False, ultrasonic_ok: bool = True):
     """PID correction for roll centering."""
@@ -232,7 +260,7 @@ def auto_center_roll(offset_cm: float, centered: bool = False, ultrasonic_ok: bo
 
     if now - _pid_last_move_ts >= cfg.ROLL_PID_INTERVAL_S:
         _pid_last_move_ts = now
-        stepper_move_mm(mm)
+        stepper_move(mm)
 
     return mm
 
@@ -254,9 +282,6 @@ def _feed_off():
 def set_feed_duty_cycle(duty: int):
     set_feed_duty(duty)
 
-
-def stepper_move(delta_mm: float):
-    stepper_move_mm(delta_mm)
 
 
 @dataclass

@@ -6,32 +6,43 @@ import threading
 import time
 
 import config as cfg
-from sensor_data import InterpretedSensorData
+from sensor_data import RawSensorData
 
 log = logging.getLogger(__name__)
 
 try:
-    import spidev  # type: ignore
-except Exception:  # pragma: no cover
+    import spidev  
+except Exception: 
     class _SpiStub:
         def open(self, bus, device): pass
         def close(self): pass
         def xfer2(self, frame, speed_hz=0):
             buf = bytearray(cfg.SPI_PACKET_SIZE)
             buf[0] = cfg.SPI_START_FROM_ESP
-            buf[1] = cfg.MSG_IDLE
-            buf[2] = 0
-            buf[-1] = 0
+            cmd = frame[1] if len(frame) > 1 else 0
+
+            if cmd == cfg.CMD_PING:
+                buf[1] = cfg.MSG_PONG
+            elif cmd == cfg.CMD_CAL_START:
+                buf[1] = cfg.MSG_CAL_RAW_WEIGHT
+                buf[2] = 4
+                buf[3:7] = struct.pack("<i", 123456)
+            elif cmd in (cfg.CMD_TARE, cfg.CMD_RESET_BAGS, cfg.CMD_CAL_FACTOR, cfg.CMD_SET_THERMO_OFFSET):
+                buf[1] = cfg.MSG_ACK
+            else:
+                buf[1] = cfg.MSG_IDLE
+
+            buf[-1] = _crc8(buf[:-1])
             return list(buf)
 
     class _SpidevStub:
         SpiDev = _SpiStub
 
-    spidev = _SpidevStub()  # type: ignore
+    spidev = _SpidevStub()  
 
 try:
-    import RPi.GPIO as GPIO  # type: ignore
-except Exception:  # pragma: no cover
+    import RPi.GPIO as GPIO
+except Exception:  
     class _GPIOStub:
         IN = OUT = BCM = HIGH = LOW = None
         def setmode(self, *a, **k): pass
@@ -40,7 +51,7 @@ except Exception:  # pragma: no cover
         def input(self, pin): return 0
         def cleanup(self): pass
 
-    GPIO = _GPIOStub()  # type: ignore
+    GPIO = _GPIOStub()  
 
 
 def _crc8(data: bytes) -> int:
